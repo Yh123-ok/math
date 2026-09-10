@@ -1,0 +1,7 @@
+numpy
+scipy
+openpyxl
+pypdf
+reportlab
+pypdfium2
+Pillow

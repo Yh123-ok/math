@@ -1,0 +1,72 @@
+DATA AUDIT (before optimization)
+{
+  "source_sheet_names": [
+    "Sheet1"
+  ],
+  "shape_with_header": [
+    145,
+    4
+  ],
+  "numeric_observations": 144,
+  "headers": [
+    "时间",
+    "电价",
+    "小区负载",
+    "光伏发电预测功率"
+  ],
+  "first_time": "00:10:00",
+  "last_time": "0:00+1",
+  "missing_cells": [],
+  "nonnumeric_cells": [],
+  "duplicate_time_count": 0,
+  "duplicate_full_row_count": 0,
+  "input_sha256": "66b87134f5ecccd68184d3539bb1293ef039f9e0fdd955a589b9bfa7f227c377",
+  "template_sha256": "28360e0974e7d6065394a8aba4e14a86773ae0036cc7d3ea1b211b515b03d688",
+  "plan_sha256": "81795f106f085cacfdd473cdf54a72587cef6ff7254e9ed0a8c79a7b7c452edf",
+  "pdf_sha256": "5eab970f4b2c08e2ef0e23b770c73b23f095ccec572acb15bf49681a83945f69",
+  "numpy_version": "2.3.5",
+  "scipy_version": "1.18.1",
+  "python_version": "3.12.14",
+  "numeric_ranges": {
+    "电价": {
+      "min": 0.3713,
+      "max": 1.3952,
+      "repeated_numeric_values": 7
+    },
+    "小区负载": {
+      "min": 3309.3934,
+      "max": 5958.9696,
+      "repeated_numeric_values": 0
+    },
+    "光伏发电预测功率": {
+      "min": 0.0,
+      "max": 7612.316,
+      "repeated_numeric_values": 54
+    }
+  },
+  "template_sheets": {
+    "计划购电量": [
+      145,
+      2
+    ],
+    "充放电量": [
+      7,
+      5
+    ]
+  },
+  "template_first_label": "0:10-0:20",
+  "template_last_label": "0:00+1-0:10+1",
+  "mapping_A_exact_label_matches": 143,
+  "mapping_B_exact_label_matches": 144
+}
+SOLVED A: optimum=35126.9485892896, dispatch=35126.9489405591, purchase=59482.6981674023
+SOLVED B: optimum=35126.8485892896, dispatch=35126.8489405581, purchase=59482.6981674047
+Traceback (most recent call last):
+  File "D:\shumo_n\C_newprompt\code\problem1.py", line 681, in <module>
+    main()
+  File "D:\shumo_n\C_newprompt\code\problem1.py", line 633, in main
+    values = fill_template(results['B'][0], results['B'][1], labels)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\shumo_n\C_newprompt\code\problem1.py", line 350, in fill_template
+    raise ValueError(f'Expected one existing result cell {name}!{address}, found {count}')
+ValueError: Expected one existing result cell 充放电量!B2, found 0

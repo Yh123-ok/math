@@ -1,0 +1,30 @@
+{
+  "excel_purchase_max_abs_error_kwh": 0.0,
+  "excel_numeric_cells_filled": 158,
+  "excel_all_values_max_abs_error_kwh": 0.0,
+  "template_original_unchanged": true,
+  "source_original_unchanged": true,
+  "template_structure_style_labels_preserved": true,
+  "summary_tables_reaggregated": true,
+  "saved_cost_reaggregation_error_yuan": 7.275957614183426e-12,
+  "saved_baseline_reaggregation_error_yuan": 0.0,
+  "saved_purchase_sum_error_kwh": 0.0,
+  "template_order_soc_cycle_closed": true,
+  "pdf_validation": {
+    "problem1_cost_comparison.pdf": {
+      "pages": 1,
+      "raster_images": 0,
+      "size_bytes": 12219
+    },
+    "problem1_dispatch.pdf": {
+      "pages": 1,
+      "raster_images": 0,
+      "size_bytes": 20755
+    },
+    "problem1_soc.pdf": {
+      "pages": 1,
+      "raster_images": 0,
+      "size_bytes": 12492
+    }
+  }
+}

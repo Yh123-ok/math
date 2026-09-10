@@ -1,0 +1,116 @@
+DATA AUDIT (before optimization)
+{
+  "source_sheet_names": [
+    "Sheet1"
+  ],
+  "shape_with_header": [
+    145,
+    4
+  ],
+  "numeric_observations": 144,
+  "headers": [
+    "时间",
+    "电价",
+    "小区负载",
+    "光伏发电预测功率"
+  ],
+  "first_time": "00:10:00",
+  "last_time": "0:00+1",
+  "missing_cells": [],
+  "nonnumeric_cells": [],
+  "duplicate_time_count": 0,
+  "duplicate_full_row_count": 0,
+  "input_sha256": "66b87134f5ecccd68184d3539bb1293ef039f9e0fdd955a589b9bfa7f227c377",
+  "template_sha256": "28360e0974e7d6065394a8aba4e14a86773ae0036cc7d3ea1b211b515b03d688",
+  "plan_sha256": "81795f106f085cacfdd473cdf54a72587cef6ff7254e9ed0a8c79a7b7c452edf",
+  "pdf_sha256": "5eab970f4b2c08e2ef0e23b770c73b23f095ccec572acb15bf49681a83945f69",
+  "numpy_version": "2.3.5",
+  "scipy_version": "1.18.1",
+  "python_version": "3.12.14",
+  "numeric_ranges": {
+    "电价": {
+      "min": 0.3713,
+      "max": 1.3952,
+      "repeated_numeric_values": 7
+    },
+    "小区负载": {
+      "min": 3309.3934,
+      "max": 5958.9696,
+      "repeated_numeric_values": 0
+    },
+    "光伏发电预测功率": {
+      "min": 0.0,
+      "max": 7612.316,
+      "repeated_numeric_values": 54
+    }
+  },
+  "template_sheets": {
+    "计划购电量": [
+      145,
+      2
+    ],
+    "充放电量": [
+      7,
+      5
+    ]
+  },
+  "template_first_label": "0:10-0:20",
+  "template_last_label": "0:00+1-0:10+1",
+  "mapping_A_exact_label_matches": 143,
+  "mapping_B_exact_label_matches": 144
+}
+SOLVED A: optimum=35126.9485892896, dispatch=35126.9489405591, purchase=59482.6981674023
+SOLVED B: optimum=35126.8485892896, dispatch=35126.8489405581, purchase=59482.6981674047
+ALL OUTPUT CHECKS PASSED
+{
+  "mapping": "B",
+  "is_official": true,
+  "solver": "HiGHS LP, lexicographic two stages",
+  "stage1_status": 0,
+  "stage2_status": 0,
+  "stage1_message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
+  "stage2_message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
+  "optimal_cost_yuan": 35126.84858928963,
+  "dispatch_cost_yuan": 35126.84894055812,
+  "epsilon_yuan": 0.0003512684858928963,
+  "cost_increase_yuan": 0.00035126849252264947,
+  "cost_bound_violation_yuan": 6.6297531700620915e-12,
+  "lp_dual_gap_yuan": 7.275957614183426e-12,
+  "lp_stationarity_max": 0.0,
+  "purchase_kwh": 59482.69816740467,
+  "charge_kwh": 20740.661758270187,
+  "discharge_kwh": 16799.936024198847,
+  "curtailment_kwh": 0.0,
+  "baseline_purchase_kwh": 61789.935399999995,
+  "baseline_cost_yuan": 48052.046590846665,
+  "saving_yuan": 12925.197650288545,
+  "saving_fraction": 0.26898329139534793,
+  "energy_balance_max_abs_kwh": 1.1368683772161603e-13,
+  "soc_transition_max_abs_kwh": 8.313350008393172e-13,
+  "soc_continuity_max_abs_kwh": 0.0,
+  "soc_min_kwh": 1200.0,
+  "soc_max_kwh": 10800.0,
+  "charge_max_kwh": 833.3333333333334,
+  "discharge_max_kwh": 715.6530333333333,
+  "soc_0000_kwh": 6000.0,
+  "soc_2400_kwh": 6000.0,
+  "soc_terminal_abs_error_kwh": 0.0,
+  "simultaneous_charge_discharge_max_kwh": 0.0,
+  "block_charge_sum_abs_error_kwh": 3.637978807091713e-12,
+  "block_discharge_sum_abs_error_kwh": 0.0,
+  "minimum_nonnegative_variable_kwh": 0.0,
+  "nan_inf_count": 0,
+  "period_count": 144,
+  "blocks_each_24": true,
+  "excel_purchase_max_abs_error_kwh": 0.0,
+  "excel_numeric_cells_filled": 158,
+  "excel_all_values_max_abs_error_kwh": 0.0,
+  "template_original_unchanged": true,
+  "source_original_unchanged": true,
+  "template_structure_style_labels_preserved": true,
+  "summary_tables_reaggregated": true,
+  "saved_cost_reaggregation_error_yuan": 7.275957614183426e-12,
+  "saved_baseline_reaggregation_error_yuan": 0.0,
+  "saved_purchase_sum_error_kwh": 0.0,
+  "template_order_soc_cycle_closed": true
+}
