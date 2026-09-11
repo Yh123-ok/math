@@ -1,0 +1,189 @@
+{
+  "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+  "numpy": "2.3.5",
+  "scipy": "1.18.1",
+  "reportlab": "4.4.9",
+  "openpyxl": "3.1.5",
+  "config": {
+    "SEED": 2026,
+    "PERIODS": 144,
+    "DELTA_HOURS": 0.16666666666666666,
+    "ETA_CHARGE": 0.9,
+    "ETA_DISCHARGE": 0.9,
+    "SOC_MIN": 1200.0,
+    "SOC_MAX": 10800.0,
+    "SOC_INITIAL": 6000.0,
+    "SOC_TARGET": 6000.0,
+    "ENERGY_LIMIT": 833.3333333333334,
+    "EMERGENCY_MULTIPLIER": 5.0,
+    "PHYSICAL_TOL": 1e-06,
+    "LOAD_HISTORY_DAYS": 56,
+    "LOAD_DATE_HALF_LIFE": 28.0,
+    "LOAD_SHRINK_K": 4.0,
+    "LOAD_LEVEL_DAYS": 7,
+    "ENSEMBLE_VALIDATION_DAYS": 28,
+    "ENSEMBLE_MIN_DAYS": 7,
+    "PV_EWMA_DAYS": 7,
+    "PV_EWMA_HALF_LIFE": 3.0,
+    "PV_TREND_DAYS": 28,
+    "PV_RECENT_WEIGHTS": [
+      0.6,
+      0.3,
+      0.1
+    ],
+    "PV_TOTAL_BLEND": 0.7,
+    "ERROR_HISTORY_DAYS": 7,
+    "ERROR_DATE_HALF_LIFE": 3.0,
+    "ERROR_SLOT_RADIUS": 1,
+    "ERROR_SLOT_SCALE": 1.0,
+    "ERROR_MIN_SAMPLES": 14,
+    "RIDGE_HISTORY_DAYS": 60,
+    "RIDGE_START_DAY": 14,
+    "RIDGE_LAMBDA": 5.0,
+    "PRICE_HISTORY_DAYS": 28,
+    "PRICE_HALF_LIFE": 14.0,
+    "RISK_CANDIDATES": [
+      [
+        0.8,
+        1.0
+      ],
+      [
+        0.85,
+        0.8
+      ],
+      [
+        0.9,
+        0.7
+      ],
+      [
+        0.9,
+        0.8
+      ],
+      [
+        0.95,
+        0.6
+      ],
+      [
+        0.95,
+        0.7
+      ]
+    ],
+    "COLD_START_DAYS": 60,
+    "SCORE_DAYS": 28,
+    "UPDATE_DAYS": 7,
+    "OFFICIAL_START_INDEX": 31,
+    "SPECIFIED_DATES": [
+      "2025-03-20",
+      "2025-06-21",
+      "2025-09-23",
+      "2025-12-21"
+    ]
+  },
+  "inputs": {
+    "附件2.xlsx": {
+      "sha256": "2e95fd446bfafa0d8c59577b5c2e2ea8b3f1def20dde54a3062556f4da9b4c72",
+      "sheets": {
+        "小区负载": {
+          "shape": [
+            366,
+            145
+          ],
+          "header_first": "日期\\时间",
+          "first_date": "2025-01-01",
+          "last_date": "2025-12-31",
+          "first_time": "00:10",
+          "last_time": "0:00+1",
+          "missing_non_numeric_nonfinite": 0,
+          "duplicate_dates": 0,
+          "min": 1995.7176,
+          "max": 7978.8849
+        },
+        "光伏发电实际功率": {
+          "shape": [
+            366,
+            145
+          ],
+          "header_first": "日期\\时间",
+          "first_date": "2025-01-01",
+          "last_date": "2025-12-31",
+          "first_time": "00:10",
+          "last_time": "0:00+1",
+          "missing_non_numeric_nonfinite": 0,
+          "duplicate_dates": 0,
+          "min": 0.0,
+          "max": 10216.2
+        }
+      }
+    },
+    "附件4.xlsx": {
+      "sha256": "20e9c93aeab5e8e21ae4dd15587f9e190f7408692504c1319598461cd654fe71",
+      "sheets": {
+        "Sheet1": {
+          "shape": [
+            366,
+            145
+          ],
+          "header_first": "日期\\时间",
+          "first_date": "2025-01-01",
+          "last_date": "2025-12-31",
+          "first_time": "00:10",
+          "last_time": "0:00+1",
+          "missing_non_numeric_nonfinite": 0,
+          "duplicate_dates": 0,
+          "min": 0.0076,
+          "max": 1.7936
+        }
+      }
+    },
+    "template": {
+      "sha256": "1c26494cfc6d754e0bd9bff7e13e1126a73d2d2da6c5336eb251d89b9a1a1a47",
+      "sheets": {
+        "计划购电量": [
+          335,
+          147
+        ],
+        "充放电量": [
+          20,
+          6
+        ],
+        "紧急购电量": [
+          11,
+          3
+        ]
+      },
+      "label_correction": "output copy only: source endpoint 00:10 maps to 00:00-00:10; no array rotation"
+    }
+  },
+  "outputs_sha256": {
+    "src\\backtest.py": "8c2f30c59d2289ab22a40e319caed3a21ba3dd2872c580a8aaa33e3a5562eeac",
+    "src\\data_io.py": "2641b2b8f0a7dd5867521384d4c02d893590cfbd13fbfa88e4671e80027a0bfa",
+    "src\\day_ahead.py": "a53926a2e6a707e81e06590b323b1c55fef525c48a56141fe737c7e35ab54fbf",
+    "src\\figures.py": "a6cf8dc86fd9c5aff6eb0e3619a605604d209372c778a80ac819243dc4598f2b",
+    "src\\forecasting.py": "89f69bb50882468a0edd6f132926f40789e78b78076f18b4528f13ac964713f3",
+    "src\\realtime.py": "2d2df799fad8a05c7a9c9fb4ef465430aca92dc8ffbb0bf6bf815cd2c03fa2d5",
+    "src\\reporting.py": "3235092e0f91d80c89a8ca25b5f9e60f39ba470eb328f722480f06382c3ee8c2",
+    "src\\validation.py": "fb93430426c5e4ec0bce7b828733bb5dc7bbe33dbc0bfc7e20b824c0367f4677",
+    "src\\__init__.py": "3b7f9de57e60e382f5a4b8eed974199dc164052aeae867dc676d2e0717784a61",
+    "tools\\write_result.mjs": "732fa66d4911cdff614c406b1fd6651006b0906c90126353a1c4cd058bc3c279",
+    "reports\\METHOD.md": "789bfa9c30c7d437b0a7a63531f9a6eaf8aa5c8e6a2083612d9a671db9cdc9c7",
+    "reports\\RESULTS_REPORT.md": "d7b0302fab3b1ffcdb8e5be8c97a0b1b16fc31c09dc458f5d09aba56164970cd",
+    "figures\\dispatch_june21.pdf": "dc2fac2b877dfc0b7768a6a539aaf115150f01ff19ee284400a18fb21d7f966f",
+    "figures\\monthly_cost.pdf": "d1d085723bb71f3963b28045ccb97f752624aa43358af159b1a9da7e3d0290bd",
+    "figures\\monthly_emergency.pdf": "99d1e23da96a41f654e24aa53453efcbc120aac81f2147b41ed51199285221dd",
+    "figures\\soc.pdf": "12e7dcdf6755507ec5b2e646db62ca417dad77cf70bdf4486a8df4553bf7bef2",
+    "outputs\\battery_four_hour.csv": "6e62c03893933a282f8e5b2725b5387b2aa22fe5474ac0fafc3a77875117aa85",
+    "outputs\\daily_summary.csv": "07dc9278eb8c689a40d9a515fda78e65a2ed015ab44b2f78bf91b9836659290d",
+    "outputs\\dispatch_all_year.csv": "43c9c8802cdfad4341848c247287e8481dcf1d07c58054b605c088ff7c25a4d8",
+    "outputs\\emergency_events.csv": "dcbc14e1ea9dfa2d5169ad90bb7758eb4f3fc110626e4f6b4100cedf408ac78e",
+    "outputs\\forecasts.csv": "4204d4947728bf3a30d9c33e53a13e5cd196a11e52d13523aebef7f8d08e3335",
+    "outputs\\forecast_weights.csv": "5e29426e2a0208470ca1f6f860edd4811a5be05c7a504eeda2206db3efd043c8",
+    "outputs\\risk_shadow_daily.csv": "be489a6e6e685ae4f5e2b746fbaee01b78877f2db32397daf1809fa502bc1fc3",
+    "outputs\\selections.csv": "6e4c5603270fceb89e367a725ef871b86368a962b67256bbca45924e578531f4",
+    "outputs\\summary.csv": "dee97ecee52ef63c1738329a55f71e2b31857e57c2f29d6da0115f90638ac7f1",
+    "outputs\\time_mapping.csv": "9bcce0d98ca5573fd190aec856dff4f804ba06697585cd09a2dc80d87e92f034",
+    "config.py": "647c794faa9956ef1ead0aff33ac1df694f5ba1d77deff3677428b1ec4c80c82",
+    "main.py": "012edebdf4e655dee464f5858649216544c859806c0f0b81b9347cacbbd07d91",
+    "README.md": "eeddd26455a0e8e213ea5a675bb7294dd32f1b7e38715589151a6f554b001a08",
+    "result4-2.xlsx": "2e3fef7941d72998566e0a32535d8bf8b2aab5fc52680a281e8901e3a0936ce5"
+  }
+}
