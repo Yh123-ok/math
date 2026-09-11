@@ -72,6 +72,12 @@ def _local_grid(alpha, kappa):
 def select_month_parameters(month_day, month_number, common_initial_soc, previous, load, pv, prices, forecasts):
     """在月初用此前最多60天进行完整因果回放，选择当月方案和参数。"""
     start = max(cfg.CALIBRATION_START_DAY_INDEX, month_day - cfg.CALIBRATION_WINDOW_DAYS)
+    if month_day < cfg.COLD_START_HISTORY_DAYS:
+        return {"scheme": cfg.COLD_START_SCHEME, "alpha": cfg.COLD_START_ALPHA,
+                "kappa": cfg.COLD_START_KAPPA, "validation_cost": float("nan"),
+                "best_cost": float("nan"), "validation_start": start,
+                "validation_end": month_day, "candidates": 0,
+                "selection_stage": "cold_start_guard"}
     if month_day <= start:
         return {"scheme": 2, "alpha": 0.8, "kappa": 1.0, "validation_cost": float("nan"),
                 "validation_start": start, "validation_end": month_day, "candidates": 0}
@@ -115,7 +121,8 @@ def run_year(dates, load, pv, prices, forecasts, progress=None):
     selections = []
     soc = cfg.SOC_INITIAL
     day_start_socs = []
-    current = {"scheme": 2, "alpha": 0.8, "kappa": 1.0}
+    current = {"scheme": cfg.COLD_START_SCHEME, "alpha": cfg.COLD_START_ALPHA,
+               "kappa": cfg.COLD_START_KAPPA}
     for day, current_date in enumerate(dates):
         day_start_socs.append(soc)
         if day >= 31 and current_date.day == 1:

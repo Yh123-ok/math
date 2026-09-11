@@ -70,7 +70,8 @@ def build_outputs(base, data, forecasts, results, selections, comparisons, check
                     "load_actual_kwh": data.load_kwh[d,t], "load_forecast_kwh": load_hat[t],
                     "pv_actual_kwh": data.pv_kwh[d,t], "pv_forecast_kwh": pv_hat[t],
                     "net_actual_kwh": data.load_kwh[d,t]-data.pv_kwh[d,t],
-                    "net_forecast_kwh": load_hat[t]-pv_hat[t], "safety_margin_kwh": margin[t],
+                    "net_forecast_kwh": load_hat[t]-pv_hat[t],
+                    "safety_margin_kwh": result.kappa*margin[t],
                     "net_error_kwh": forecasts["net_error"][d,t],
                 })
         daily_rows.append({
@@ -143,7 +144,7 @@ def make_report(base, data, daily_rows, selections, comparisons, checks, emergen
         "# 问题二计算结果报告", "",
         "本报告由 `run_problem2.py` 自动生成，只记录方案、参数、计算结果和校验。", "",
         "## 正式策略", "",
-        "正式执行在每月第一天使用此前最多60天数据滚动选择方案。方案0为昨日同时间预测，方案1为分层预测，方案2为动态组合预测与时间衰减加权分位数。费用差不超过0.1%时选择更简单的方案。每天0:00确定正常购电，日内不调整该计划。", "",
+        "正式执行采用冷启动保护：不足60个完整历史日时固定使用方案2、alpha=0.80、kappa=1.00；达到60天后，每月第一天使用此前最多60天数据滚动选择方案。方案0为昨日同时间预测，方案1为分层预测，方案2为动态组合预测与时间衰减加权分位数。费用差不超过0.1%时选择更简单的方案。每天0:00确定正常购电，日内不调整该计划。", "",
         "实时阶段采用严格因果的单时段滚动优化。当前实际负载和光伏到达后，最小化该时段五倍紧急购电费；计划购电费已经发生，因此在实时目标中是常数。这个实现不使用未来实际值。", "",
         "## 主要结果（2025-02-01至2025-12-31）", "",
         "| 指标 | 数值 |", "| --- | ---: |",

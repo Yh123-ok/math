@@ -12,12 +12,12 @@
   "cost_recalculation_max_abs_yuan": 0.0,
   "nan_inf_count": 0,
   "first_soc_kwh": 6000.0,
-  "last_soc_kwh": 5954.300799977091,
+  "last_soc_kwh": 2021.3230713853504,
   "causal_forecast_rule": "forecast arrays for day d are computed only from indices < d",
   "excel_plan_max_abs_error": 0.0,
   "excel_plan_rows": 334,
   "excel_battery_rows": 2004,
-  "excel_emergency_rows": 208,
+  "excel_emergency_rows": 287,
   "excel_sheet_names_preserved": true,
   "vector_pdf_count": 3
 }

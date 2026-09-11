@@ -19,7 +19,8 @@ def day_ahead_plan(net_forecast, margin, prices, initial_soc, kappa, lexicograph
     q = np.arange(0, n); c = np.arange(n, 2*n); discharge = np.arange(2*n, 3*n)
     w = np.arange(3*n, 4*n); soc = np.arange(4*n, 5*n+1); h = size - 1
     aeq = lil_matrix((2*n, size)); beq = np.zeros(2*n)
-    demand = np.asarray(net_forecast) + np.asarray(margin)
+    # kappa只缩放历史误差分位数安全余量，不与日末SOC惩罚混用。
+    demand = np.asarray(net_forecast) + float(kappa) * np.asarray(margin)
     for t in range(n):
         aeq[t, [q[t], c[t], discharge[t], w[t]]] = [1, -1, 1, -1]
         beq[t] = demand[t]
@@ -31,7 +32,8 @@ def day_ahead_plan(net_forecast, margin, prices, initial_soc, kappa, lexicograph
              + [(cfg.SOC_MIN, cfg.SOC_MAX)]*(n+1) + [(0, None)]
     bounds[4*n] = (initial_soc, initial_soc)
     primary = np.zeros(size); primary[q] = prices
-    rho = kappa * cfg.ETA_DISCHARGE * float(np.mean(prices))
+    # 日末SOC不足可能在下一时段触发紧急购电，按五倍末时段电价计价。
+    rho = cfg.EMERGENCY_MULTIPLIER * float(prices[-1])
     primary[h] = rho
     options = {"primal_feasibility_tolerance": 1e-9, "dual_feasibility_tolerance": 1e-9}
     first = linprog(primary, A_ub=aub.tocsr(), b_ub=bub, A_eq=aeq.tocsr(), b_eq=beq,
