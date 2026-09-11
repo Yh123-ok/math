@@ -103,6 +103,7 @@ def build_outputs(base, data, forecasts, results, selections, comparisons, check
     weight_rows = [{
         "date": data.dates[d].isoformat(), "load_weight_yesterday": forecasts["load_weight_a"][d],
         "load_weight_hierarchical": 1-forecasts["load_weight_a"][d] if np.isfinite(forecasts["load_weight_a"][d]) else "",
+        "net_weight_online_ridge": forecasts["net_ridge_weight"][d],
         "pv_weight_yesterday": forecasts["pv_weights"][d,0], "pv_weight_ewma": forecasts["pv_weights"][d,1],
         "pv_weight_shape_total": forecasts["pv_weights"][d,2],
     } for d in range(1, len(data.dates))]
@@ -115,6 +116,8 @@ def build_outputs(base, data, forecasts, results, selections, comparisons, check
                                    "alpha":alpha, "kappa":kappa, "inventory_adjusted_validation_cost_yuan":score})
     write_csv(out / "monthly_strategy_selection.csv", selection_rows)
     write_csv(out / "monthly_candidate_scores.csv", candidate_rows)
+    write_csv(out / "weekly_strategy_selection.csv", selection_rows)
+    write_csv(out / "weekly_candidate_scores.csv", candidate_rows)
     write_csv(out / "scheme_comparison.csv", comparisons)
     mapping = [{"source_column": i+2, "source_timestamp": data.source_times[i],
                 "physical_interval": data.interval_labels[i],
@@ -144,7 +147,7 @@ def make_report(base, data, daily_rows, selections, comparisons, checks, emergen
         "# 问题二计算结果报告", "",
         "本报告由 `run_problem2.py` 自动生成，只记录方案、参数、计算结果和校验。", "",
         "## 正式策略", "",
-        "正式执行采用冷启动保护：不足60个完整历史日时固定使用方案2、alpha=0.80、kappa=1.00；达到60天后，每月第一天使用此前最多60天数据滚动选择方案。方案0为昨日同时间预测，方案1为分层预测，方案2为动态组合预测与时间衰减加权分位数。费用差不超过0.1%时选择更简单的方案。每天0:00确定正常购电，日内不调整该计划。", "",
+        "正式方案使用严格因果的在线岭回归负载预测与原组合预测，并按最近28个已完成日的MAE每日选择组合权重。安全余量使用最近7天、半衰期3天和相邻1个时段的误差。每7天从预设风险前沿中选择参数，评分只使用此前28个已结算日；历史不足60天时采用alpha=0.80、kappa=1.00。每天0:00确定正常购电，日内不调整该计划。", "",
         "实时阶段采用严格因果的单时段滚动优化。当前实际负载和光伏到达后，最小化该时段五倍紧急购电费；计划购电费已经发生，因此在实时目标中是常数。这个实现不使用未来实际值。", "",
         "## 主要结果（2025-02-01至2025-12-31）", "",
         "| 指标 | 数值 |", "| --- | ---: |",
@@ -155,13 +158,23 @@ def make_report(base, data, daily_rows, selections, comparisons, checks, emergen
         f"| 实际总费用 | {total('total_cost_yuan'):,.6f} 元 |",
         f"| 评价期初储电量 | {official[0]['initial_soc_kwh']:,.6f} kWh |",
         f"| 评价期末储电量 | {official[-1]['final_soc_kwh']:,.6f} kWh |", "",
-        "## 方案对照", "", "| 方案 | 说明 | 总费用/元 | 紧急购电量/kWh | 期末储电量/kWh |",
-        "| --- | --- | ---: | ---: | ---: |",
     ]
-    descriptions = {0:"昨日预测、无安全余量",1:"分层预测、无安全余量",2:"组合预测、80%加权分位数",9:"月度滚动选择的正式策略"}
+    baseline_path=base/"outputs"/"baseline_before_stochastic"/"daily_summary.csv"
+    if baseline_path.exists():
+        with baseline_path.open("r",encoding="utf-8-sig",newline="") as handle:
+            baseline=[r for r in csv.DictReader(handle) if r["date"]>=cfg.OFFICIAL_START]
+        old_cost=sum(float(r["total_cost_yuan"]) for r in baseline)
+        old_emergency=sum(float(r["emergency_kwh"]) for r in baseline)
+        lines += ["## 相对上一正式版本的改进", "",
+                  "| 指标 | 上一版 | 最终版 | 变化 |", "| --- | ---: | ---: | ---: |",
+                  f"| 总费用/元 | {old_cost:,.6f} | {total('total_cost_yuan'):,.6f} | {total('total_cost_yuan')-old_cost:,.6f} |",
+                  f"| 紧急购电量/kWh | {old_emergency:,.6f} | {total('emergency_kwh'):,.6f} | {total('emergency_kwh')-old_emergency:,.6f} |", ""]
+    lines += ["## 方案对照", "", "| 方案 | 说明 | 总费用/元 | 紧急购电量/kWh | 期末储电量/kWh |",
+              "| --- | --- | ---: | ---: | ---: |"]
+    descriptions = {0:"昨日预测、无安全余量",1:"分层预测、无安全余量",2:"因果组合预测与误差分位数",9:"每周因果选择的正式策略"}
     for row in comparisons:
         lines.append(f"| {row['scheme']} | {descriptions.get(row['scheme'],'')} | {row['total_cost_yuan']:,.6f} | {row['emergency_kwh']:,.6f} | {row['final_soc_kwh']:,.6f} |")
-    lines += ["", "## 月度滚动选择", "", "| 生效日期 | 方案 | alpha | kappa | 验证起点 | 候选数 |", "| --- | ---: | ---: | ---: | ---: | ---: |"]
+    lines += ["", "## 每周因果参数选择", "", "| 生效日期 | 方案 | alpha | kappa | 历史窗口起点 | 候选数 |", "| --- | ---: | ---: | ---: | ---: | ---: |"]
     for s in selections:
         lines.append(f"| {s['effective_date']} | {s['scheme']} | {s['alpha']} | {s['kappa']} | {data.dates[s['validation_start']]} | {s['candidates']} |")
     lines += ["", "## 四个指定日期", ""]
@@ -176,9 +189,9 @@ def make_report(base, data, daily_rows, selections, comparisons, checks, emergen
     lines += [
         "## 校验", "", "| 项目 | 数值 |", "| --- | ---: |",
         *[f"| {k} | {v} |" for k,v in checks.items() if isinstance(v,(int,float))], "",
-        "正式计算的功率均先乘1/6小时转换为电量。每一天的初始储电量继承前一天实际末值；1月1日采用零计划购电冷启动。预测权重、误差分位数和月度参数选择只使用当时已经完成的历史日期。", "",
+        "正式计算的功率均先乘1/6小时转换为电量。每一天的初始储电量继承前一天实际末值；1月1日采用零计划购电冷启动。预测、误差分位数和周参数选择只使用决策时已经完成的历史日期。", "",
         "官方模板的计划表提供334天完整行；本结果还将充放电表扩展为334×6行，将紧急购电表扩展为所有连续紧急购电事件。模板原件没有修改。", "",
-        "详细字段、模型公式和每个代码文件用途见 `METHOD.md` 与目录 `README.md`。", "",
+        "详细字段、模型公式和每个代码文件用途见 `METHOD.md`，信息边界检查见 `LEAKAGE_AUDIT.md`。", "",
     ]
     report_dir = base / "reports"; report_dir.mkdir(parents=True, exist_ok=True)
     (report_dir / "RESULTS_REPORT.md").write_text("\n".join(lines), encoding="utf-8")

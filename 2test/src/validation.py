@@ -13,9 +13,15 @@ def validate_results(results, load, pv, prices, forecasts, output_path: Path):
     soc_min, soc_max = float("inf"), -float("inf")
     charge_max = discharge_max = 0.0
     cost_error = 0.0
+    planned_cost_error = emergency_cost_error = emergency_rule_error = 0.0
+    nonnegative_violation = emergency_charge_max = 0.0
+    period_count_violations = 0
     nan_count = 0
     for i, result in enumerate(results):
         q = result.plan["q"]; a = result.actual
+        if len(q) != cfg.PERIODS or any(len(a[k]) != cfg.PERIODS for k in
+                                        ["charge", "discharge", "emergency", "waste"]):
+            period_count_violations += 1
         balance = q + pv[i] + a["discharge"] + a["emergency"] - load[i] - a["charge"] - a["waste"]
         transition = a["soc"][1:] - a["soc"][:-1] - cfg.ETA_CHARGE*a["charge"] + a["discharge"]/cfg.ETA_DISCHARGE
         max_balance = max(max_balance, float(np.max(np.abs(balance))))
@@ -25,6 +31,19 @@ def validate_results(results, load, pv, prices, forecasts, output_path: Path):
         charge_max = max(charge_max, float(a["charge"].max())); discharge_max = max(discharge_max, float(a["discharge"].max()))
         expected = float(np.dot(prices, q) + cfg.EMERGENCY_MULTIPLIER*np.dot(prices, a["emergency"]))
         cost_error = max(cost_error, abs(expected - result.total_cost))
+        planned_cost_error = max(planned_cost_error,
+                                 abs(float(np.dot(prices, q))-result.planned_cost))
+        emergency_cost_error = max(emergency_cost_error,
+                                   abs(float(cfg.EMERGENCY_MULTIPLIER*np.dot(prices, a["emergency"]))
+                                       - result.emergency_cost))
+        required_emergency = np.maximum(load[i]-pv[i]-q-a["discharge"], 0.0)
+        emergency_rule_error = max(emergency_rule_error,
+                                   float(np.max(np.abs(a["emergency"]-required_emergency))))
+        nonnegative_violation = max(nonnegative_violation,
+                                    float(max(0.0, -min(np.min(x) for x in
+                                        [q,a["charge"],a["discharge"],a["emergency"],a["waste"]]))))
+        emergency_charge_max = max(emergency_charge_max,
+                                   float(np.minimum(a["emergency"],a["charge"]).max()))
         nan_count += int(sum((~np.isfinite(x)).sum() for x in [q, a["charge"], a["discharge"], a["emergency"], a["waste"], a["soc"]]))
         if i:
             max_continuity = max(max_continuity, abs(result.initial_soc - results[i-1].actual["soc"][-1]))
@@ -37,6 +56,12 @@ def validate_results(results, load, pv, prices, forecasts, output_path: Path):
         "soc_min_kwh": soc_min, "soc_max_kwh": soc_max,
         "charge_max_kwh": charge_max, "discharge_max_kwh": discharge_max,
         "cost_recalculation_max_abs_yuan": cost_error, "nan_inf_count": nan_count,
+        "planned_cost_recalculation_max_abs_yuan": planned_cost_error,
+        "emergency_cost_recalculation_max_abs_yuan": emergency_cost_error,
+        "emergency_shortage_rule_max_abs_kwh": emergency_rule_error,
+        "nonnegative_max_violation_kwh": nonnegative_violation,
+        "simultaneous_emergency_charge_max_kwh": emergency_charge_max,
+        "daily_period_count_violations": period_count_violations,
         "first_soc_kwh": results[0].initial_soc,
         "last_soc_kwh": float(results[-1].actual["soc"][-1]),
         "causal_forecast_rule": "forecast arrays for day d are computed only from indices < d",
@@ -46,6 +71,9 @@ def validate_results(results, load, pv, prices, forecasts, output_path: Path):
     assert soc_min >= cfg.SOC_MIN-cfg.PHYSICAL_TOL and soc_max <= cfg.SOC_MAX+cfg.PHYSICAL_TOL
     assert charge_max <= cfg.ENERGY_LIMIT+cfg.PHYSICAL_TOL and discharge_max <= cfg.ENERGY_LIMIT+cfg.PHYSICAL_TOL
     assert max_simultaneous <= cfg.PHYSICAL_TOL and cost_error <= cfg.PHYSICAL_TOL and nan_count == 0
+    assert planned_cost_error <= cfg.PHYSICAL_TOL and emergency_cost_error <= cfg.PHYSICAL_TOL
+    assert emergency_rule_error <= cfg.PHYSICAL_TOL and nonnegative_violation <= cfg.PHYSICAL_TOL
+    assert emergency_charge_max <= cfg.PHYSICAL_TOL and period_count_violations == 0
+    assert abs(results[0].initial_soc-cfg.SOC_INITIAL) <= cfg.PHYSICAL_TOL
     output_path.write_text(json.dumps(checks, ensure_ascii=False, indent=2), encoding="utf-8")
     return checks
-

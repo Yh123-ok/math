@@ -23,7 +23,7 @@ python D:\shumo_n\C_newprompt\2test\run_problem2.py
 │  ├─ data_io.py            输入读取、单位转换、时间与模板核验
 │  ├─ forecasting.py        负载和光伏候选预测、因果组合权重
 │  ├─ optimization.py       日前线性规划与实时滚动储能控制
-│  ├─ simulation.py         多方案回放、月度参数选择、全年执行
+│  ├─ simulation.py         影子策略回放、每周因果参数选择、全年执行
 │  ├─ validation.py         物理约束、信息边界、费用和文件校验
 │  ├─ reporting.py          CSV与Markdown报告整理
 │  └─ figures.py            从已保存结果绘制并校验矢量PDF图
@@ -34,12 +34,12 @@ python D:\shumo_n\C_newprompt\2test\run_problem2.py
 └─ figures/                 运行生成的矢量PDF图
 ```
 
-完整变量定义、预测权重、滚动验证、优化目标和约束见 `reports/METHOD.md`。
+完整变量定义、预测权重、滚动验证、优化目标和约束见 `reports/METHOD.md`；无信息泄露检查见 `reports/LEAKAGE_AUDIT.md`。
 
 ## 信息边界
 
 日期 `d` 的预测和计划只读取日期 `< d` 的实际值及历史预测误差。当天实际负载和光伏只在对应十分钟时段到达后用于执行。2月1日储电量由1月运行过程继承，程序不重置电池。
 
-历史不足60个完整日时启用冷启动保护，固定采用方案2、`alpha=0.80`、`kappa=1.00`。达到60天后再恢复月度滚动参数选择。安全系数实际作用于净负荷安全余量，日末SOC不足单独按五倍末时段电价惩罚。
+历史不足60个完整日时启用冷启动保护，采用方案2、`alpha=0.80`、`kappa=1.00`。之后每7天只根据此前28个已结算日的影子策略得分选择参数。安全系数实际作用于净负荷安全余量，日末SOC不足单独按五倍末时段电价惩罚。
 
 官方模板时间标签与附件列标签存在一格歧义。物理计算采用附件时间为区间终点的口径；模板写入按其既定144列顺序保存，并在 `outputs/time_mapping.csv` 和结果报告中明确记录这一差异。

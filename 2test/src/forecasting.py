@@ -51,6 +51,28 @@ def _pv_weight_grid(actual, candidates, valid_days):
     return best[1]
 
 
+def _online_ridge(source, fallback):
+    """用滞后1/7日和3/7日均值做逐时段岭回归；每次只拟合过去数据。"""
+    result = fallback.copy()
+    days, periods = source.shape
+    for d in range(cfg.RIDGE_START_DAY, days):
+        start = max(7, d-cfg.RIDGE_HISTORY_DAYS)
+        idx = np.arange(start, d)
+        features = np.stack([
+            source[idx-1], source[idx-7],
+            np.array([source[max(0,i-3):i].mean(axis=0) for i in idx]),
+            np.array([source[max(0,i-7):i].mean(axis=0) for i in idx]),
+        ], axis=2)
+        today = np.stack([source[d-1], source[d-7], source[d-3:d].mean(axis=0),
+                          source[d-7:d].mean(axis=0)], axis=1)
+        for t in range(periods):
+            x=features[:,t,:]; y=source[idx,t]
+            center=x.mean(axis=0); scale=x.std(axis=0)+1e-6; z=(x-center)/scale
+            beta=np.linalg.solve(z.T@z+cfg.RIDGE_LAMBDA*np.eye(4), z.T@(y-y.mean()))
+            result[d,t]=max(0.0, float(y.mean()+((today[t]-center)/scale)@beta))
+    return result
+
+
 def generate_causal_forecasts(dates, load, pv):
     """返回所有候选预测及每天当时可得的组合权重。"""
     days, periods = load.shape
@@ -123,10 +145,31 @@ def generate_causal_forecasts(dates, load, pv):
         pv_weights[d] = bw
         pv_final[d] = bw[0] * pv_a[d] + bw[1] * pv_b[d] + bw[2] * pv_c[d]
 
+    load_ridge = _online_ridge(load, load_final)
+    original_net = load_final-pv_final
+    ridge_net = load_ridge-pv_final
+    net_final = original_net.copy()
+    ridge_weight = np.zeros(days)
+    for d in range(cfg.RIDGE_START_DAY, days):
+        valid=np.arange(max(cfg.RIDGE_START_DAY,d-cfg.ENSEMBLE_VALIDATION_DAYS),d)
+        if not len(valid):
+            continue
+        best=(float("inf"),0.0)
+        for weight in np.linspace(0,1,11):
+            pred=weight*ridge_net[valid]+(1-weight)*original_net[valid]
+            candidate=(float(np.mean(np.abs((load[valid]-pv[valid])-pred))),float(weight))
+            if candidate<best: best=candidate
+        ridge_weight[d]=best[1]
+        net_final[d]=best[1]*ridge_net[d]+(1-best[1])*original_net[d]
+    load_final=np.maximum(0.0,net_final+pv_final)
+
     return {
-        "load_a": load_a, "load_b": load_b, "load_final": load_final,
+        "load_a": load_a, "load_b": load_b, "load_ridge":load_ridge,
+        "load_final": load_final,
         "pv_a": pv_a, "pv_b": pv_b, "pv_c": pv_c, "pv_final": pv_final,
-        "load_weight_a": load_weight, "pv_weights": pv_weights,
+        "load_weight_a": load_weight, "net_ridge_weight":ridge_weight,
+        "pv_weights": pv_weights,
+        "max_source_day":np.arange(days,dtype=int)-1,
         "net_error": (load - pv) - (load_final - pv_final),
     }
 

@@ -67,7 +67,8 @@ def day_ahead_plan(net_forecast, margin, prices, initial_soc, kappa, lexicograph
     }
 
 
-def execute_one_step(actual_net, plan_q, prices, initial_soc):
+def execute_one_step(actual_net, plan_q, prices, initial_soc,
+                     reference_soc=None, reference_discharge=None):
     """每十分钟求解当前时段的紧急购电最小问题。
 
     已计划购电费是沉没成本。当前目标等价于最小化5*p_t*e_t，并以极小
@@ -79,8 +80,16 @@ def execute_one_step(actual_net, plan_q, prices, initial_soc):
     for t in range(n):
         gap = float(actual_net[t] - plan_q[t])
         if gap > 0:
-            discharge[t] = min(gap, cfg.ENERGY_LIMIT,
-                               cfg.ETA_DISCHARGE * max(0.0, soc[t] - cfg.SOC_MIN))
+            available = min(cfg.ENERGY_LIMIT,
+                            cfg.ETA_DISCHARGE * max(0.0, soc[t] - cfg.SOC_MIN))
+            allowed = available
+            if reference_soc is not None and reference_discharge is not None:
+                planned_allowance = max(float(reference_discharge[t]),
+                                        cfg.ETA_DISCHARGE*max(0.0,soc[t]-float(reference_soc[t+1])))
+                # 非最高价时不提前透支计划SOC；到剩余时域峰价则释放全部可用电量。
+                if prices[t] < 0.98*float(np.max(prices[t:])):
+                    allowed = min(available, planned_allowance)
+            discharge[t] = min(gap, allowed)
             emergency[t] = gap - discharge[t]
         else:
             surplus = -gap
@@ -96,3 +105,53 @@ def realized_cost(plan_q, emergency, prices):
     planned = float(np.dot(prices, plan_q))
     urgent = float(cfg.EMERGENCY_MULTIPLIER * np.dot(prices, emergency))
     return planned, urgent, planned + urgent
+
+
+def stochastic_day_ahead_plan(net_forecast, error_scenarios, scenario_weights,
+                              prices, initial_soc):
+    """两阶段随机LP：q为场景共用日前决策，其余变量按历史误差场景追溯。"""
+    net_forecast = np.asarray(net_forecast, dtype=float)
+    errors = np.asarray(error_scenarios, dtype=float)
+    weights = np.asarray(scenario_weights, dtype=float)
+    weights = weights / weights.sum()
+    ns, n = errors.shape
+    block = 5*n + 1  # c,d,w,e,S(n+1)
+    size = n + ns*block
+    rows = 2*ns*n
+    aeq = lil_matrix((rows, size)); beq = np.zeros(rows)
+    objective = np.zeros(size); objective[:n] = prices
+    bounds = [(0, None)]*n
+    soc_indices = []
+    for s in range(ns):
+        base = n + s*block
+        c = np.arange(base, base+n); d = np.arange(base+n, base+2*n)
+        w = np.arange(base+2*n, base+3*n); e = np.arange(base+3*n, base+4*n)
+        soc = np.arange(base+4*n, base+5*n+1); soc_indices.append(soc)
+        objective[c] = cfg.STOCHASTIC_THROUGHPUT_PENALTY*weights[s]
+        objective[d] = cfg.STOCHASTIC_THROUGHPUT_PENALTY*weights[s]
+        objective[e] = cfg.STOCHASTIC_PLANNING_EMERGENCY_MULTIPLIER*weights[s]*prices
+        bounds += [(0,cfg.ENERGY_LIMIT)]*n + [(0,cfg.ENERGY_LIMIT)]*n
+        bounds += [(0,None)]*n + [(0,None)]*n
+        bounds += [(cfg.SOC_MIN,cfg.SOC_MAX)]*(n+1)
+        bounds[n + s*block + 4*n] = (initial_soc, initial_soc)
+        bounds[n + s*block + 5*n] = (cfg.SOC_TARGET, cfg.SOC_MAX)
+        for t in range(n):
+            r = s*n+t
+            aeq[r, [t,c[t],d[t],w[t],e[t]]] = [1,-1,1,-1,1]
+            beq[r] = net_forecast[t] + errors[s,t]
+            r2 = ns*n+s*n+t
+            aeq[r2, [c[t],d[t],soc[t],soc[t+1]]] = [
+                -cfg.ETA_CHARGE,1/cfg.ETA_DISCHARGE,-1,1]
+    options = {"primal_feasibility_tolerance":1e-8,"dual_feasibility_tolerance":1e-8}
+    solved = linprog(objective, A_eq=aeq.tocsr(), b_eq=beq, bounds=bounds,
+                     method="highs", options=options)
+    if not solved.success:
+        raise RuntimeError(f"随机日前LP失败: {solved.message}")
+    x=solved.x
+    def average(offset):
+        return sum(weights[s]*x[n+s*block+offset:n+s*block+offset+n] for s in range(ns))
+    ref_soc = sum(weights[s]*x[soc_indices[s]] for s in range(ns))
+    return {"q":x[:n], "reference_charge":average(0),
+            "reference_discharge":average(n), "reference_waste":average(2*n),
+            "reference_soc":ref_soc, "primary_optimum":float(solved.fun),
+            "primary_realized":float(solved.fun), "rho":0.0, "epsilon":0.0}

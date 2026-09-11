@@ -105,6 +105,38 @@ def validate_excel(data, results):
     return result
 
 
+def validate_aggregations(data, results, emergency_rows, battery_rows):
+    """复核题面要求的四小时汇总、紧急连续区间及正式日期范围。"""
+    from datetime import date
+    start = data.dates.index(date.fromisoformat(cfg.OFFICIAL_START))
+    official = results[start:]
+    assert len(official) == 334 and len(battery_rows) == len(official)*6
+    charge_error = discharge_error = 0.0
+    for i, result in enumerate(official):
+        rows = battery_rows[i*6:(i+1)*6]
+        assert len(rows) == 6 and all(rows[b]["time_range"] ==
+            f"{b*4:02d}:00-{(b+1)*4:02d}:00" for b in range(6))
+        charge_error = max(charge_error, abs(sum(float(x["charge_kwh"]) for x in rows)
+                                             - float(result.actual["charge"].sum())))
+        discharge_error = max(discharge_error, abs(sum(float(x["discharge_kwh"]) for x in rows)
+                                                   - float(result.actual["discharge"].sum())))
+    emergency_total = sum(float(x["emergency_kwh"]) for x in emergency_rows)
+    actual_total = sum(float(x.actual["emergency"].sum()) for x in official)
+    event_error = abs(emergency_total-actual_total)
+    checks = {"four_hour_block_periods": 24,
+              "four_hour_charge_sum_max_abs_kwh": charge_error,
+              "four_hour_discharge_sum_max_abs_kwh": discharge_error,
+              "emergency_event_sum_abs_error_kwh": event_error,
+              "official_start_date": data.dates[start].isoformat(),
+              "official_end_date": data.dates[-1].isoformat(),
+              "official_day_count": len(official)}
+    assert charge_error <= cfg.PHYSICAL_TOL and discharge_error <= cfg.PHYSICAL_TOL
+    assert event_error <= cfg.PHYSICAL_TOL
+    assert checks["official_start_date"] == cfg.OFFICIAL_START
+    assert checks["official_end_date"] == "2025-12-31"
+    return checks
+
+
 def main():
     random.seed(cfg.SEED); np.random.seed(cfg.SEED)
     for folder in [BASE/"outputs",BASE/"reports",BASE/"figures"]: folder.mkdir(parents=True,exist_ok=True)
@@ -117,7 +149,16 @@ def main():
     progress("计算方案0、1、2对照")
     comparisons=scheme_comparisons(results,data,forecasts)
     checks=validate_results(results,data.load_kwh,data.pv_kwh,data.prices,forecasts,BASE/"outputs"/"validation.json")
+    forecast_violations=int(np.sum(forecasts["max_source_day"][1:] >= np.arange(1,len(data.dates))))
+    date_index={d.isoformat():i for i,d in enumerate(data.dates)}
+    selection_violations=sum(int(s["latest_observation_day"] >= date_index[s["effective_date"]])
+                             for s in selections)
+    checks.update({"forecast_future_access_violations":forecast_violations,
+                   "parameter_future_access_violations":selection_violations,
+                   "same_day_actual_used_for_forecast":False})
+    assert forecast_violations==0 and selection_violations==0
     daily,emergency,battery=build_outputs(BASE,data,forecasts,results,selections,comparisons,checks)
+    checks.update(validate_aggregations(data,results,emergency,battery))
     make_report(BASE,data,daily,selections,comparisons,checks,emergency)
     progress("填写并渲染result2.xlsx")
     write_excel()

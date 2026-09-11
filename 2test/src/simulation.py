@@ -7,7 +7,8 @@ import numpy as np
 
 import config as cfg
 from .forecasting import weighted_safety_margin
-from .optimization import day_ahead_plan, execute_one_step, realized_cost
+from .optimization import (day_ahead_plan, stochastic_day_ahead_plan,
+                           execute_one_step, realized_cost)
 
 
 @dataclass
@@ -43,8 +44,40 @@ def simulate_day(day, scheme, alpha, kappa, initial_soc, load, pv, prices, forec
         load_hat, pv_hat = _forecast_for_scheme(day, scheme, forecasts)
         if not np.isfinite(load_hat).all() or not np.isfinite(pv_hat).all():
             raise ValueError(f"第{day}天预测不可用")
-        margin = weighted_safety_margin(day, forecasts["net_error"], alpha) if scheme == 2 else np.zeros(cfg.PERIODS)
-        plan = day_ahead_plan(load_hat - pv_hat, margin, prices, initial_soc, kappa, lexicographic=lexicographic)
+        if scheme == 3:
+            start = max(1, day-cfg.STOCHASTIC_SCENARIO_DAYS)
+            historical = forecasts["net_error"][start:day]
+            ages = np.arange(len(historical), 0, -1, dtype=float)
+            hist_weights = 2.0**(-ages/cfg.STOCHASTIC_ERROR_HALF_LIFE)
+            hist_weights *= (1.0-cfg.STOCHASTIC_POINT_WEIGHT)/hist_weights.sum()
+            scenarios = np.vstack([np.zeros(cfg.PERIODS), historical])
+            weights = np.r_[cfg.STOCHASTIC_POINT_WEIGHT, hist_weights]
+            plan = stochastic_day_ahead_plan(load_hat-pv_hat, scenarios, weights,
+                                              prices, initial_soc)
+        elif scheme == 4:
+            # 方案二.md：负载取同星期几，光伏取最近日期，再作笛卡尔积。
+            load_days = [day-7*i for i in range(1,cfg.JOINT_LOAD_WEEKS+1)
+                         if day-7*i >= 0]
+            pv_days = [day-i for i in range(1,cfg.JOINT_PV_DAYS+1)
+                       if day-i >= 0]
+            load_curves=[]; load_w=[]
+            for rank,i in enumerate(load_days):
+                scale=float(load_hat.sum()/max(load[i].sum(),1e-9))
+                load_curves.append(load[i]*scale); load_w.append(0.85**rank)
+            pv_curves=[]; pv_w=[]
+            for rank,i in enumerate(pv_days):
+                scale=float(pv_hat.sum()/max(pv[i].sum(),1e-9)) if pv_hat.sum()>0 else 0.0
+                pv_curves.append(pv[i]*scale); pv_w.append(0.85**rank)
+            scenarios=[]; weights=[]
+            for i,lc in enumerate(load_curves):
+                for j,pc in enumerate(pv_curves):
+                    scenarios.append(lc-pc-(load_hat-pv_hat))
+                    weights.append(load_w[i]*pv_w[j])
+            plan = stochastic_day_ahead_plan(load_hat-pv_hat, np.asarray(scenarios),
+                                              np.asarray(weights), prices, initial_soc)
+        else:
+            margin = weighted_safety_margin(day, forecasts["net_error"], alpha) if scheme == 2 else np.zeros(cfg.PERIODS)
+            plan = day_ahead_plan(load_hat - pv_hat, margin, prices, initial_soc, kappa, lexicographic=lexicographic)
     actual = execute_one_step(load[day] - pv[day], plan["q"], prices, initial_soc)
     planned, urgent, total = realized_cost(plan["q"], actual["emergency"], prices)
     return DayResult(day, scheme, alpha, kappa, initial_soc, plan, actual, planned, urgent, total)
@@ -121,15 +154,57 @@ def run_year(dates, load, pv, prices, forecasts, progress=None):
     selections = []
     soc = cfg.SOC_INITIAL
     day_start_socs = []
-    current = {"scheme": cfg.COLD_START_SCHEME, "alpha": cfg.COLD_START_ALPHA,
-               "kappa": cfg.COLD_START_KAPPA}
+    current = ({"scheme":2,"alpha":cfg.FINAL_ALPHA,"kappa":cfg.FINAL_KAPPA}
+               if cfg.USE_FIXED_FINAL_PLAN else
+               {"scheme":cfg.COLD_START_SCHEME,"alpha":cfg.COLD_START_ALPHA,
+                "kappa":cfg.COLD_START_KAPPA})
+    shadow_socs={spec:cfg.SOC_INITIAL for spec in cfg.WEEKLY_CANDIDATES}
+    shadow_history={spec:[] for spec in cfg.WEEKLY_CANDIDATES}
     for day, current_date in enumerate(dates):
         day_start_socs.append(soc)
-        if day >= 31 and current_date.day == 1:
+        if cfg.USE_CAUSAL_WEEKLY_SELECTION and day >= 31 and (day-31)%7 == 0:
+            if day < cfg.COLD_START_HISTORY_DAYS:
+                chosen=(cfg.COLD_START_ALPHA,cfg.COLD_START_KAPPA)
+                scores=[]; stage="cold_start_guard"
+            else:
+                scores=[]
+                for spec in cfg.WEEKLY_CANDIDATES:
+                    recent=shadow_history[spec][-cfg.WEEKLY_SCORE_DAYS:]
+                    score=sum(x[0] for x in recent); urgent=sum(x[1] for x in recent)
+                    scores.append((score,urgent,spec))
+                best=min(x[0] for x in scores)
+                eligible=[x for x in scores if x[0] <= best*(1+cfg.WEEKLY_COST_TIE)]
+                chosen=min(eligible,key=lambda x:(x[1],x[0],x[2]))[2]
+                stage="causal_shadow_28d"
+            current={"scheme":2,"alpha":chosen[0],"kappa":chosen[1]}
+            candidate_rows=[(x[0],2,x[2][0],x[2][1],"causal_shadow_28d")
+                            for x in scores]
+            selections.append({**current,"validation_cost":float("nan"),
+                "best_cost":min((x[0] for x in scores),default=float("nan")),
+                "validation_start":max(0,day-cfg.WEEKLY_SCORE_DAYS),
+                "validation_end":day,"candidates":len(scores),
+                "selection_stage":stage,"latest_observation_day":day-1,
+                "all_candidates":candidate_rows,
+                "effective_date":current_date.isoformat()})
+            if progress:
+                progress(f"周参数更新 {current_date}: alpha={chosen[0]}, kappa={chosen[1]}")
+        elif not cfg.USE_CAUSAL_WEEKLY_SELECTION and day >= 31 and current_date.day == 1:
             validation_start = max(cfg.CALIBRATION_START_DAY_INDEX, day - cfg.CALIBRATION_WINDOW_DAYS)
             common_soc = day_start_socs[validation_start]
-            selected = select_month_parameters(day, current_date.month, common_soc, current,
-                                               load, pv, prices, forecasts)
+            if cfg.USE_FIXED_FINAL_PLAN:
+                selected={"scheme":2,"alpha":cfg.FINAL_ALPHA,"kappa":cfg.FINAL_KAPPA,
+                          "validation_cost":float("nan"),"best_cost":float("nan"),
+                          "validation_start":validation_start,"validation_end":day,
+                          "candidates":0,"selection_stage":"fixed_sensitivity_frontier"}
+            elif cfg.USE_STOCHASTIC_PLAN:
+                selected = {"scheme":4,"alpha":0.0,"kappa":0.0,
+                            "validation_cost":float("nan"),"best_cost":float("nan"),
+                            "validation_start":validation_start,"validation_end":day,
+                            "candidates":0,"selection_stage":"stochastic_scenarios"}
+            else:
+                selected = select_month_parameters(day, current_date.month, common_soc, current,
+                                                   load, pv, prices, forecasts)
+            selected["latest_observation_day"] = day-1
             selected["effective_date"] = current_date.isoformat()
             selections.append(selected)
             current = selected
@@ -139,4 +214,12 @@ def run_year(dates, load, pv, prices, forecasts, progress=None):
                               soc, load, pv, prices, forecasts)
         results.append(result)
         soc = float(result.actual["soc"][-1])
+        for spec in cfg.WEEKLY_CANDIDATES:
+            shadow=simulate_day(day,2,spec[0],spec[1],shadow_socs[spec],load,pv,
+                                prices,forecasts,lexicographic=False)
+            end=float(shadow.actual["soc"][-1])
+            inventory=cfg.TERMINAL_VALUE_FACTOR*float(np.mean(prices))*(end-shadow.initial_soc)
+            shadow_history[spec].append((shadow.total_cost-inventory,
+                                         float(shadow.actual["emergency"].sum())))
+            shadow_socs[spec]=end
     return results, selections
