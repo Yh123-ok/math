@@ -1,0 +1,23 @@
+# Runtime dependencies and local caches
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+
+# Intermediate export; final results and validation logs remain versioned
+code/outputs/artifact_filled.xlsx
+code/outputs/*.inspect.ndjson
+code/outputs/*.tmp
+
+# Source documents, raw inputs, and local diagnostics are not published
+/C题.pdf
+/建模方案.md
+/附件/
+code/outputs/*.log
+code/outputs/problem1_source_pdf_text.txt
+code/outputs/template_values.json
+code/qa/preview_*.png
+code/qa/fill_*.png

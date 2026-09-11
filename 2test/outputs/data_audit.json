@@ -1,0 +1,74 @@
+{
+  "attachment1_sheets": [
+    "Sheet1"
+  ],
+  "attachment1_shape": [
+    145,
+    4
+  ],
+  "attachment1_headers": [
+    "时间",
+    "电价",
+    "小区负载",
+    "光伏发电预测功率"
+  ],
+  "attachment2_sheets": [
+    "小区负载",
+    "光伏发电实际功率"
+  ],
+  "attachment2_shapes": {
+    "小区负载": [
+      366,
+      145
+    ],
+    "光伏发电实际功率": [
+      366,
+      145
+    ]
+  },
+  "first_date": "2025-01-01",
+  "last_date": "2025-12-31",
+  "date_count": 365,
+  "periods_per_day": 144,
+  "first_source_time": "00:10",
+  "last_source_time": "0:00+1",
+  "missing_or_nonfinite_count": 0,
+  "duplicate_date_count": 0,
+  "ranges": {
+    "电价": {
+      "min": 0.3713,
+      "max": 1.3952
+    },
+    "负载功率": {
+      "min": 1995.7176,
+      "max": 7978.8849
+    },
+    "光伏功率": {
+      "min": 0.0,
+      "max": 10216.2
+    }
+  },
+  "template_sheets": [
+    "计划购电量",
+    "充放电量",
+    "紧急购电量"
+  ],
+  "template_shapes": {
+    "计划购电量": [
+      335,
+      147
+    ],
+    "充放电量": [
+      20,
+      6
+    ],
+    "紧急购电量": [
+      11,
+      3
+    ]
+  },
+  "attachment1_sha256": "66b87134f5ecccd68184d3539bb1293ef039f9e0fdd955a589b9bfa7f227c377",
+  "attachment2_sha256": "2e95fd446bfafa0d8c59577b5c2e2ea8b3f1def20dde54a3062556f4da9b4c72",
+  "template_sha256": "1c26494cfc6d754e0bd9bff7e13e1126a73d2d2da6c5336eb251d89b9a1a1a47",
+  "time_interpretation": "source timestamp is interval end; 00:10 maps to 00:00-00:10"
+}
