@@ -1,8 +1,24 @@
-# 微网与外部电网电力调控策略：问题一
+# 微网与外部电网电力调控策略
 
-本仓库保存问题一的数据核验、双时间映射线性规划、完整调度结果、填写完成的结果表、中文矢量图和计算结果报告。当前仅完成问题一。
+本仓库目前包含问题一和问题二的可复现代码、计算结果、结果表、方法说明与验收记录。
 
-## 计算结果
+## 推荐阅读入口
+
+| 内容 | 第一问 | 第二问 |
+| --- | --- | --- |
+| 完整目录 | [`C题/`](C题/) | [`2test/`](2test/) |
+| 一键运行入口 | [`C题/code/problem1.py`](C题/code/problem1.py) | [`2test/run_problem2.py`](2test/run_problem2.py) |
+| 正式 Excel | [`C题/result1.xlsx`](C题/result1.xlsx) | [`2test/result2.xlsx`](2test/result2.xlsx) |
+| 核心结果报告 | [`C题/reports/RESULTS_REPORT.md`](C题/reports/RESULTS_REPORT.md) | [`2test/reports/RESULTS_REPORT.md`](2test/reports/RESULTS_REPORT.md) |
+| 方法与约束 | [`C题/建模方案.md`](C题/建模方案.md) | [`2test/reports/METHOD.md`](2test/reports/METHOD.md) |
+| 约束验收 | [`C题/code/outputs/problem1_validation.json`](C题/code/outputs/problem1_validation.json) | [`2test/reports/CONSTRAINT_AUDIT.md`](2test/reports/CONSTRAINT_AUDIT.md) |
+| 防信息泄露 | 不涉及滚动预测 | [`2test/reports/LEAKAGE_AUDIT.md`](2test/reports/LEAKAGE_AUDIT.md) |
+| 完整数值明细 | [`C题/code/outputs/`](C题/code/outputs/) | [`2test/outputs/`](2test/outputs/) |
+| 图表 | [`C题/figures/`](C题/figures/) | [`2test/figures/`](2test/figures/) |
+
+根目录中的 `code/`、`figures/`、`reports/` 和 `result1.xlsx` 是第一问早期上传时保留的兼容副本。阅读和复现第一问时，以结构完整的 `C题/` 为准；第二问所有正式内容都在 `2test/`，最新第二问提交没有修改第一问。
+
+## 第一问计算结果
 
 正式结果采用口径 B（源数据时间是区间起点），并明确使用典型日的 24 小时周期映射处理模板末尾跨日时段。口径 A（源数据时间是区间终点）作为敏感性结果完整保留。详细映射和初始储电量解释见[结果报告](reports/RESULTS_REPORT.md)。
 
