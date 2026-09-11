@@ -2,7 +2,7 @@
 
 评价期为2025-02-01至2025-12-31；1月也逐日运行并延续真实模拟库存。以下为历史因果回测，不是全信息最优解，也不是独立未触碰测试集。
 
-假设每天0:00已公布当天144段电价；未知明日电价。附件2源时间作为区间终点。输出副本纠正模板错位表头，原始模板未改。附件3不进入本问题的信息集。
+假设每天0:00已公布当天144段电价；未知明日电价。附件2源时间作为区间终点。按用户要求，Excel所有表头原样保留。计划表第t个数据列对应源数据第t个终点及其前十分钟物理区间，不按模板偏移的文字平移数值；详见time_mapping.csv。附件3不进入本问题的信息集。
 
 ## 1. 核心结果与对照
 
@@ -164,7 +164,7 @@
         3
       ]
     },
-    "label_correction": "output copy only: source endpoint 00:10 maps to 00:00-00:10; no array rotation"
+    "label_policy": "preserve all original template headers; column t stores source endpoint t for physical interval [(t-1)*10,t*10); no array rotation; see time_mapping.csv"
   }
 }
 ```
@@ -237,11 +237,15 @@
     "mpc_reserves_for_expensive_future_example": "passed"
   },
   "saved_outputs": {
+    "verified_workbook": "result4-2.xlsx",
+    "original_header_cells_verified": 156,
+    "original_headers_unchanged": true,
+    "time_mapping_rows_verified": 144,
     "excel_plan_and_daily_totals_max_error": 1.4551915228366852e-11,
     "excel_battery_max_error": 0.0,
     "csv_battery_reaggregation_error_kwh": 1.8189894035458565e-12,
     "excel_emergency_max_error": 0.0,
-    "csv_cost_reaggregation_error_yuan": 1.862645149230957e-09,
+    "csv_cost_reaggregation_error_yuan": 0.0,
     "emergency_event_sum_error_kwh": 0.0,
     "template_unchanged": true,
     "official_days": 334,

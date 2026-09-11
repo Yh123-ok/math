@@ -20,7 +20,7 @@ async function render(name, range, suffix) {
 if (mode === "write") {
   const payload = JSON.parse(await fs.readFile(path.join(base, "outputs", "excel_payload.json"), "utf8"));
   const plan = wb.worksheets.getItem("计划购电量");
-  plan.getRange("B1:EO1").values = [payload.physical_labels];
+  // 原模板表头原样保留；列与实际物理区间的对应关系另存time_mapping.csv。
   plan.getRange("B2:EQ335").values = payload.plan_values;
   plan.getRange("B2:EQ335").format.numberFormat = "0.000000";
   plan.freezePanes.freezeRows(1);
@@ -59,11 +59,22 @@ if (mode === "write") {
   const errors = await wb.inspect({kind:"match",searchTerm:"#REF!|#DIV/0!|#VALUE!|#NAME\\?|#N/A|#NUM!|#NULL!",options:{useRegex:true,maxResults:50}});
   await fs.writeFile(path.join(base,"outputs","excel_formula_scan.ndjson"), errors.ndjson || "", "utf8");
   const output = await SpreadsheetFile.exportXlsx(wb);
-  await output.save(payload.output_path);
+  let outputPath = payload.output_path;
+  try {
+    await output.save(outputPath);
+  } catch (error) {
+    if (!["EBUSY", "EPERM"].includes(error.code)) throw error;
+    // Excel打开原结果时不强行关闭应用，先保存可验收的同名副本。
+    outputPath = path.join(base, "outputs", "template_preserved", "result4-2.xlsx");
+    await fs.mkdir(path.dirname(outputPath), {recursive:true});
+    await output.save(outputPath);
+  }
+  await fs.writeFile(path.join(base,"outputs","workbook_export.json"),
+    JSON.stringify({output_path:outputPath, requested_path:payload.output_path}), "utf8");
   await render("计划购电量","A1:H8","result4-2_plan");
   await render("充放电量","A1:F14","result4-2_battery");
   await render("紧急购电量",`A1:C${Math.min(eRows.length,18)}`,"result4-2_emergency");
-  console.log(JSON.stringify({output:payload.output_path, planRows:payload.plan_values.length,
+  console.log(JSON.stringify({output:outputPath, planRows:payload.plan_values.length,
     batteryRows:payload.battery_rows.length, emergencyRows:payload.emergency_rows.length}));
 } else {
   await render("计划购电量","A1:H8","template_plan");
@@ -71,4 +82,3 @@ if (mode === "write") {
   await render("紧急购电量","A1:C11","template_emergency");
   console.log("Template preview complete");
 }
-

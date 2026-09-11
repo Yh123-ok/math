@@ -70,6 +70,6 @@
         3
       ]
     },
-    "label_correction": "output copy only: source endpoint 00:10 maps to 00:00-00:10; no array rotation"
+    "label_policy": "preserve all original template headers; column t stores source endpoint t for physical interval [(t-1)*10,t*10); no array rotation; see time_mapping.csv"
   }
 }

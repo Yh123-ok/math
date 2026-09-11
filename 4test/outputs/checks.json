@@ -63,11 +63,15 @@
     "mpc_reserves_for_expensive_future_example": "passed"
   },
   "saved_outputs": {
+    "verified_workbook": "result4-2.xlsx",
+    "original_header_cells_verified": 156,
+    "original_headers_unchanged": true,
+    "time_mapping_rows_verified": 144,
     "excel_plan_and_daily_totals_max_error": 1.4551915228366852e-11,
     "excel_battery_max_error": 0.0,
     "csv_battery_reaggregation_error_kwh": 1.8189894035458565e-12,
     "excel_emergency_max_error": 0.0,
-    "csv_cost_reaggregation_error_yuan": 1.862645149230957e-09,
+    "csv_cost_reaggregation_error_yuan": 0.0,
     "emergency_event_sum_error_kwh": 0.0,
     "template_unchanged": true,
     "official_days": 334,

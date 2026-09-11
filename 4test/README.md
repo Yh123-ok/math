@@ -7,7 +7,7 @@
 - 假设每天0:00可获得当天完整144段电价，明日电价不可见。这是本次用户指定的电价发布假设，并非附件本身证明的市场规则。
 - 当天负载和光伏预测仅使用昨天及以前数据。日内控制仅观测当前段实际净负荷；后续段实际值不可见。
 - 不使用附件3，不对锁定的正常购电量作日内调整。实时观测作为本段能量平衡的理想反馈，不等于提前知道整日实际值。
-- 00:10是00:00–00:10的区间终点。结果副本纠正原模板偏移一格的时间表头，不平移输入数组，保留原模板原件。
+- 00:10是00:00–00:10的区间终点。按用户要求保留原模板全部表头，按原始数据列序填写结果，不平移数组；模板文字与物理区间的差异在 `outputs/time_mapping.csv` 明确列出。
 
 ## 2. 文件结构及用途
 
@@ -29,7 +29,7 @@
 |`outputs/daily_summary.csv`、`summary.csv`|三种控制策略逐日与评价期合计|
 |`outputs/selections.csv`、`risk_shadow_daily.csv`|每次选择的历史区间、各候选分数和原始日记录|
 |`outputs/battery_four_hour.csv`、`emergency_events.csv`|全年四小时充放电、连续紧急购电事件|
-|`outputs/time_mapping.csv`|原始时间、原模板标签和输出物理区间逐项映射|
+|`outputs/time_mapping.csv`|源数据列、输出列、原样保留的模板标签与实际物理区间逐项映射|
 |`outputs/checks.json`、`input_audit.json`、`manifest.json`|验收、输入核验、运行版本/配置/哈希|
 |`reports/METHOD.md`|完整方法、公式、选型理由和局限|
 |`reports/RESULTS_REPORT.md`|总结果、指定四日摘要和所有验收数值|

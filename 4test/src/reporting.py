@@ -78,7 +78,9 @@ def export_results(base,data,forecasts,streams,daily,selections,risk_history,che
     write_csv(out/'emergency_events.csv',events)
     write_csv(out/'selections.csv',selections)
     write_csv(out/'time_mapping.csv',({'slot':t,'source_endpoint':data.source_times[t],
-        'original_template_label':data.template_labels[t],'physical_output_label':interval_label(t)} for t in range(144)))
+        'original_template_label':data.template_labels[t],'output_template_label':data.template_labels[t],
+        'physical_interval':interval_label(t),'source_data_column_1based':t+2,
+        'output_excel_column_1based':t+2} for t in range(144)))
     forecast_weights=[]
     for d in range(1,len(data.dates)):
         forecast_weights.append({'date':str(data.dates[d]),'load_weight_a':forecasts['load_weight_a'][d],
@@ -98,7 +100,8 @@ def export_results(base,data,forecasts,streams,daily,selections,risk_history,che
     write_csv(out/'risk_shadow_daily.csv',({'risk_index':j,'date':str(data.dates[r['day']]),**r}
         for j,rows in enumerate(risk_history) for r in rows))
     payload={'output_path':str(base/'result4-2.xlsx'),'plan_values':plan_values,'battery_rows':battery,
-        'emergency_rows':events,'physical_labels':[interval_label(t) for t in range(144)]}
+        'emergency_rows':events,'template_labels':list(data.template_labels),
+        'physical_labels':[interval_label(t) for t in range(144)]}
     (out/'excel_payload.json').write_text(json.dumps(payload,ensure_ascii=False),encoding='utf-8')
     if not make_artifacts:
         write_report(base,data,summary,daily,streams,checks)
@@ -106,7 +109,8 @@ def export_results(base,data,forecasts,streams,daily,selections,risk_history,che
         return
     node=find_node(base)
     subprocess.run([node,str(base/'tools/write_result.mjs')],check=True,cwd=base)
-    checks['saved_outputs']=verify_saved_outputs(base,data,payload,summary)
+    exported=Path(json.loads((out/'workbook_export.json').read_text(encoding='utf-8'))['output_path'])
+    checks['saved_outputs']=verify_saved_outputs(base,data,payload,summary,exported)
     from .figures import create_figures
     create_figures(base)
     (out/'checks.json').write_text(json.dumps(checks,ensure_ascii=False,indent=2),encoding='utf-8')
@@ -124,7 +128,7 @@ def export_results(base,data,forecasts,streams,daily,selections,risk_history,che
     print(json.dumps(summary,ensure_ascii=False,indent=2),flush=True)
 
 
-def verify_saved_outputs(base,data,payload,summary):
+def verify_saved_outputs(base,data,payload,summary,workbook_path=None):
     out=base/'outputs';rows=read_csv(out/'dispatch_all_year.csv')
     assert len(rows)==365*144
     numeric=list(rows[0])[3:]
@@ -133,10 +137,24 @@ def verify_saved_outputs(base,data,payload,summary):
     official=rows[31*144:];q=np.array([float(r['plan_purchase_kwh']) for r in official]).reshape(334,144)
     prices=np.array([float(r['price_yuan_per_kwh']) for r in official]).reshape(334,144)
     urgent=np.array([float(r['emergency_kwh']) for r in official]).reshape(334,144)
-    wb=load_workbook(base/'result4-2.xlsx',data_only=True)
+    workbook_path=workbook_path or base/'result4-2.xlsx'
+    wb=load_workbook(workbook_path,data_only=True)
     assert wb.sheetnames==['计划购电量','充放电量','紧急购电量']
     ws=wb.worksheets[0]
-    assert [ws.cell(1,t+2).value for t in range(144)]==payload['physical_labels']
+    assert [ws.cell(1,t+2).value for t in range(144)]==payload['template_labels']
+    original=load_workbook(base.parent/'附件/附件5/result4-2.xlsx',read_only=True,data_only=True)
+    header_cells=0
+    for source,filled in zip(original,wb):
+        for col in range(1,source.max_column+1):
+            assert source.cell(1,col).value==filled.cell(1,col).value,(source.title,col,'表头与原模板不一致')
+            header_cells+=1
+    original.close()
+    mapping=read_csv(out/'time_mapping.csv')
+    assert len(mapping)==144
+    for t,r in enumerate(mapping):
+        assert r['output_template_label']==data.template_labels[t]
+        assert r['source_endpoint']==data.source_times[t] and r['physical_interval']==interval_label(t)
+        assert int(r['source_data_column_1based'])==int(r['output_excel_column_1based'])==t+2
     excel=np.array([[ws.cell(d+2,t+2).value for t in range(146)] for d in range(334)],float)
     expected=np.c_[q,q.sum(axis=1),(q*prices).sum(axis=1)]
     error=float(np.max(abs(excel-expected)));assert error<1e-6
@@ -168,7 +186,9 @@ def verify_saved_outputs(base,data,payload,summary):
     cost_error=abs(float((prices*(q+5*urgent)).sum())-official_summary['total_cost_yuan'])
     assert cost_error<1e-6
     assert sha256(data_path:=base.parent/'附件/附件5/result4-2.xlsx')==data.audit['template']['sha256']
-    return {'excel_plan_and_daily_totals_max_error':error,'excel_battery_max_error':berror,
+    return {'verified_workbook':str(workbook_path.relative_to(base)),
+        'original_header_cells_verified':header_cells,'original_headers_unchanged':True,
+        'time_mapping_rows_verified':144,'excel_plan_and_daily_totals_max_error':error,'excel_battery_max_error':berror,
         'csv_battery_reaggregation_error_kwh':battery_csv_error,
         'excel_emergency_max_error':eerror,'csv_cost_reaggregation_error_yuan':cost_error,
         'emergency_event_sum_error_kwh':abs(event_sum-urgent.sum()),'template_unchanged':True,
@@ -179,7 +199,7 @@ def verify_saved_outputs(base,data,payload,summary):
 def write_report(base,data,summary,daily,streams,checks):
     text=['# 第四问重解第二问：计算结果','',
         '评价期为2025-02-01至2025-12-31；1月也逐日运行并延续真实模拟库存。以下为历史因果回测，不是全信息最优解，也不是独立未触碰测试集。',
-        '', '假设每天0:00已公布当天144段电价；未知明日电价。附件2源时间作为区间终点。输出副本纠正模板错位表头，原始模板未改。附件3不进入本问题的信息集。',
+        '', '假设每天0:00已公布当天144段电价；未知明日电价。附件2源时间作为区间终点。按用户要求，Excel所有表头原样保留。计划表第t个数据列对应源数据第t个终点及其前十分钟物理区间，不按模板偏移的文字平移数值；详见time_mapping.csv。附件3不进入本问题的信息集。',
         '', '## 1. 核心结果与对照','',
         '|策略|正常购电量/kWh|紧急购电量/kWh|正常费用/元|五倍紧急费用/元|总费用/元|',
         '|---|---:|---:|---:|---:|---:|']

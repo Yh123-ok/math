@@ -64,6 +64,6 @@ def read_inputs(project):
     labels=tuple(wb.worksheets[0].cell(1,c).value for c in range(2,146))
     assert tuple(wb.worksheets[0].cell(r,1).value.date() for r in range(2,336))==dates[31:]
     audit['template']={'sha256':sha256(template),'sheets':{w.title:[w.max_row,w.max_column] for w in wb},
-        'label_correction':'output copy only: source endpoint 00:10 maps to 00:00-00:10; no array rotation'}
+        'label_policy':'preserve all original template headers; column t stores source endpoint t for physical interval [(t-1)*10,t*10); no array rotation; see time_mapping.csv'}
     wb.close()
     return Data(dates,*arrays,times,labels,audit)

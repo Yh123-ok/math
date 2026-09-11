@@ -24,7 +24,9 @@ def main():
     cache=out/'local_run_cache.pkl'
     if args.export_only:
         # pickle仅限本程序在本机生成的可信缓存，正式复现请运行默认命令。
-        assert json.loads((out/'cache_inputs.json').read_text(encoding='utf-8'))==data.audit, '输入与缓存不一致，请完整重算'
+        cached_audit=json.loads((out/'cache_inputs.json').read_text(encoding='utf-8'))
+        # 导出文字/表头策略变化无需重算；输入文件内容必须逐一哈希匹配。
+        assert {k:v['sha256'] for k,v in cached_audit.items()}=={k:v['sha256'] for k,v in data.audit.items()}, '输入与缓存不一致，请完整重算'
         with cache.open('rb') as f:forecasts,streams,daily,selections,risk_history,checks=pickle.load(f)
     else:
         forecasts=generate_causal_forecasts(data.dates,data.load,data.pv)
