@@ -1,0 +1,38 @@
+{
+  "method": "January-only load-model choice; fixed 80% historical residual margin; original PV; MPC",
+  "predictor_selected_at": "2025-02-01 00:00",
+  "chosen_predictor": "daily_shape",
+  "january_original_load_mae_kwh": 55.69864715024748,
+  "january_daily_shape_load_mae_kwh": 19.773858181352225,
+  "evaluation_days": 334,
+  "planned_cost_yuan": 13899335.37334024,
+  "emergency_cost_yuan": 394133.93413856335,
+  "total_cost_yuan": 14293469.307478802,
+  "planned_kwh": 21802637.066515666,
+  "emergency_kwh": 67753.11970070183,
+  "waste_kwh": 2635470.512421029,
+  "load_mae_kwh": 22.535020303730697,
+  "net_mae_kwh": 39.624072781785046,
+  "checks": {
+    "balance_max_kwh": 4.547473508864641e-13,
+    "state_equation_max_kwh": 9.094947017729282e-13,
+    "soc_min_kwh": 1200.0,
+    "soc_max_kwh": 10800.0,
+    "charge_max_kwh": 833.3333333333334,
+    "discharge_max_kwh": 833.3333333333334,
+    "simultaneous_max_kwh": 0.0,
+    "cross_day_soc_max_kwh": 0.0,
+    "first_soc_error_kwh": 0.0,
+    "emergency_while_charging_max_kwh": 0.0,
+    "negative_min_kwh": 0.0,
+    "nonfinite_count": 0,
+    "four_hour_charge_sum_error_kwh": 0.0,
+    "four_hour_discharge_sum_error_kwh": 0.0,
+    "slots_per_four_hour_block": 24
+  },
+  "input_sha256": {
+    "附件2.xlsx": "2e95fd446bfafa0d8c59577b5c2e2ea8b3f1def20dde54a3062556f4da9b4c72",
+    "附件4.xlsx": "20e9c93aeab5e8e21ae4dd15587f9e190f7408692504c1319598461cd654fe71",
+    "template": "1c26494cfc6d754e0bd9bff7e13e1126a73d2d2da6c5336eb251d89b9a1a1a47"
+  }
+}

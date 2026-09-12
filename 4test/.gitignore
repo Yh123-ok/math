@@ -9,3 +9,7 @@ outputs/qa/ipython/
 outputs/qa/jupyter_runtime/
 *.log
 *.inspect.ndjson
+experiments/*_outputs/
+archives/joint_v1/outputs/
+outputs/mpc_notebook_reproduction/
+outputs/qa/kernels/

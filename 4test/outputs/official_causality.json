@@ -1,0 +1,21 @@
+{
+  "dates_tested": [
+    "2025-02-10",
+    "2025-06-21",
+    "2025-12-21"
+  ],
+  "max_effects": {
+    "current_day_actual_to_forecast_kwh": 0.0,
+    "current_day_actual_to_plan_kwh": 0.0,
+    "future_price_to_plan_kwh": 0.0,
+    "future_intraday_actual_to_past_action_kwh": 0.0
+  },
+  "passed": true,
+  "scope": "tested input perturbations, not an independent blind dataset",
+  "january_only_model_selection": {
+    "old_mae_kwh": 55.69864715024748,
+    "daily_shape_mae_kwh": 19.773858181352225,
+    "selected": "daily_shape",
+    "selected_at": "2025-02-01 00:00"
+  }
+}

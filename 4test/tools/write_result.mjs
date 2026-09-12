@@ -9,7 +9,7 @@ const project = path.resolve(base, "..");
 const template = path.join(project, "附件", "附件5", "result4-2.xlsx");
 const mode = "write";
 const wb = await SpreadsheetFile.importXlsx(await FileBlob.load(template));
-const qa = path.join(base, "outputs", "qa");
+const qa = process.env.PROBLEM4_QA_DIR || path.join(base, "outputs", "qa");
 await fs.mkdir(qa, {recursive: true});
 
 async function render(name, range, suffix) {
@@ -18,7 +18,7 @@ async function render(name, range, suffix) {
 }
 
 if (mode === "write") {
-  const payload = JSON.parse(await fs.readFile(path.join(base, "outputs", "excel_payload.json"), "utf8"));
+  const payload = JSON.parse(await fs.readFile(process.env.PROBLEM4_PAYLOAD || path.join(base, "outputs", "excel_payload.json"), "utf8"));
   const plan = wb.worksheets.getItem("计划购电量");
   // 原模板表头原样保留；列与实际物理区间的对应关系另存time_mapping.csv。
   plan.getRange("B2:EQ335").values = payload.plan_values;
@@ -59,7 +59,7 @@ if (mode === "write") {
   const errors = await wb.inspect({kind:"match",searchTerm:"#REF!|#DIV/0!|#VALUE!|#NAME\\?|#N/A|#NUM!|#NULL!",options:{useRegex:true,maxResults:50}});
   await fs.writeFile(path.join(base,"outputs","excel_formula_scan.ndjson"), errors.ndjson || "", "utf8");
   const output = await SpreadsheetFile.exportXlsx(wb);
-  let outputPath = payload.output_path;
+  let outputPath = process.env.PROBLEM4_OUTPUT || payload.output_path;
   try {
     await output.save(outputPath);
   } catch (error) {
@@ -69,7 +69,7 @@ if (mode === "write") {
     await fs.mkdir(path.dirname(outputPath), {recursive:true});
     await output.save(outputPath);
   }
-  await fs.writeFile(path.join(base,"outputs","workbook_export.json"),
+  await fs.writeFile(process.env.PROBLEM4_EXPORT_RECEIPT || path.join(base,"outputs","workbook_export.json"),
     JSON.stringify({output_path:outputPath, requested_path:payload.output_path}), "utf8");
   await render("计划购电量","A1:H8","result4-2_plan");
   await render("充放电量","A1:F14","result4-2_battery");

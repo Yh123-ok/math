@@ -1,6 +1,0 @@
-{
-  "backtest_seconds": 754.7472832000349,
-  "continuous_combo_days": 4380,
-  "nominal_replay_combo_days": 14448,
-  "note": "重放复用完全相同日/组合/初始库存的计算；名义次数不等于实际LP次数"
-}

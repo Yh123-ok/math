@@ -1,0 +1,12 @@
+{
+  "plan_purchase_kwh": 21895366.13248884,
+  "emergency_kwh": 103667.7114854973,
+  "charge_kwh": 6780204.500571379,
+  "discharge_kwh": 5494350.043559189,
+  "waste_kwh": 2773989.8919954784,
+  "planned_cost_yuan": 13947676.425689995,
+  "emergency_cost_yuan": 632815.8135313117,
+  "total_cost_yuan": 14580492.239221307,
+  "soc_start_kwh": 8649.331218191313,
+  "soc_end_kwh": 6000.0
+}

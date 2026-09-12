@@ -1,0 +1,28 @@
+{
+  "original_template_headers_unchanged": true,
+  "plan_values_checked": 48764,
+  "max_excel_plan_error_kwh": 0.0,
+  "battery_rows": 2004,
+  "max_excel_battery_error_kwh": 0.0,
+  "emergency_event_rows": 396,
+  "max_excel_emergency_error_kwh": 0.0,
+  "template_sha256_unchanged": true,
+  "max_csv_daily_reaggregation_error": 1.4551915228366852e-11,
+  "all_physics": {
+    "balance_max_kwh": 4.547473508864641e-13,
+    "state_equation_max_kwh": 9.094947017729282e-13,
+    "soc_min_kwh": 1200.0,
+    "soc_max_kwh": 10800.0,
+    "charge_max_kwh": 833.3333333333334,
+    "discharge_max_kwh": 833.3333333333334,
+    "simultaneous_max_kwh": 0.0,
+    "cross_day_soc_max_kwh": 0.0,
+    "first_soc_error_kwh": 0.0,
+    "emergency_while_charging_max_kwh": 0.0,
+    "negative_min_kwh": 0.0,
+    "nonfinite_count": 0,
+    "four_hour_charge_sum_error_kwh": 0.0,
+    "four_hour_discharge_sum_error_kwh": 0.0,
+    "slots_per_four_hour_block": 24
+  }
+}

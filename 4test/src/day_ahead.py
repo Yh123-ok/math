@@ -26,10 +26,10 @@ def matrices(n=144):
     return eq.tocsr(),ub.tocsr()
 
 
-def solve_plan(demand, prices, initial_soc, price_value):
+def solve_plan(demand, prices, initial_soc, price_value, terminal_multiplier=cfg.EMERGENCY_MULTIPLIER):
     """demand已含安全余量。h是内部库存，按0.9转换后估计紧急代价。"""
     n=len(prices); eq,ub=matrices(n)
-    rho=cfg.EMERGENCY_MULTIPLIER*cfg.ETA_DISCHARGE*price_value
+    rho=terminal_multiplier*cfg.ETA_DISCHARGE*price_value
     objective=np.r_[prices,np.zeros(4*n+1),rho]
     bounds=[(0,None)]*n+[(0,cfg.ENERGY_LIMIT)]*(2*n)+[(0,None)]*n
     bounds += [(cfg.SOC_MIN,cfg.SOC_MAX)]*(n+1)+[(0,None)]

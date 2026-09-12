@@ -1,0 +1,16 @@
+{
+  "executed_notebook": "notebooks\\mpc_analysis.ipynb",
+  "plots": 4,
+  "checked_files": 8,
+  "byte_identical": true,
+  "sha256": {
+    "cost_comparison.pdf": "0342838f590dc78c1a43425e0bfd71c7abb0f31036bb90ca376cbc0c61d9f96a",
+    "cost_comparison.png": "14d2a731ddb9f59924ea045ef5da653331fac1c9898eb98253ebdd786414880c",
+    "monthly_cost_emergency.pdf": "43ee2d30380fba98d70b1039c2cf4ec6e3c34a346b26667a55affa6e9c590188",
+    "monthly_cost_emergency.png": "c959ff88e76385fd1e970b7a6ac1a360b03e71f2ddf0b0f1850a3260b809923b",
+    "forecast_accuracy.pdf": "f1073a6dc67105746751e715882e65235e64977fdfb1b1a26e900ea4a0802faa",
+    "forecast_accuracy.png": "5dce78aceb32392b6ea61c42219765ce31e4d1e21e96d5d2bb3bb191a71c85d3",
+    "dispatch_june21.pdf": "18fd14603077161123dc65e7cd6edfdca508b2cec2fbaf24b19f2994a7f956f6",
+    "dispatch_june21.png": "918cfecc4704859c8703819004f29e7756b0cd20834e63b64368cb7dc34a4dc0"
+  }
+}
