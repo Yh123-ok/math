@@ -1,0 +1,9 @@
+{
+  "safety_quantile": 0.5,
+  "terminal_target_kwh": 4800.0,
+  "rho_multiplier": 1.0,
+  "rho_yuan_per_kwh": 0.7661972222222223,
+  "calibration_start": "2025-01-08",
+  "calibration_end": "2025-01-31",
+  "selection_metric": "actual_cost - salvage_rate_multiplier * mean_price * end_soc"
+}
