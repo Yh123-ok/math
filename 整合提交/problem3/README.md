@@ -23,8 +23,9 @@ python calibrate_problem3.py
 python plot_problem3.py
 ```
 
-正式冻结参数为 `beta=0.5`、`terminal_target=4800 kWh`、
-`rho_multiplier=1.0`。校准脚本会写出 `calibration.csv` 和
+负荷预测采用 1 月 15 日冻结类别的“类别切换 + 形状×总量”方法。正式冻结参数为
+`beta=0.6`、`terminal_target=4800 kWh`、`rho_multiplier=2.0`。
+校准脚本会写出 `calibration.csv` 和
 `frozen_parameters.json`，核心程序会优先读取冻结文件。校准指标为实际费用减去期末电量折价残值，正式费用不扣残值。
 
 文件分工：`problem3.py` 是问题三入口；实际算法复用上级目录的

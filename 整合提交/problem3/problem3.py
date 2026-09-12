@@ -8,5 +8,6 @@ if str(CORE_DIR) not in sys.path:
 
 import dispatch_core
 
+
 if __name__ == "__main__":
     dispatch_core.main(Path(__file__).resolve().parent, 3)

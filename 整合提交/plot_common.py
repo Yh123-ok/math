@@ -1,3 +1,5 @@
+#问题三/问题四-3共享中文绘图
+
 import csv
 from collections import defaultdict
 from datetime import date
@@ -62,7 +64,6 @@ def month_axis(ax):
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
 
 def decorate(ax, title, ylabel, xlabel=None, legend=False):
-    """统一设置中文标题、坐标名和网格。"""
     ax.set(title=title, ylabel=ylabel, xlabel=xlabel)
     ax.grid(alpha=.25)
     if legend:
@@ -90,7 +91,7 @@ def main(base_dir=None, problem=None):
     hours = np.arange(T) / SLOTS_PER_HOUR
     OUTPUT.mkdir(exist_ok=True)
 
-    # 计划、最终调整计划与全年正常购电费用。
+    # 计划、最终调整计划与全年正常购电费用
     fig, axes = plt.subplots(2, 1, figsize=(11, 7), constrained_layout=True)
     axes[0].plot(hours, values["原始计划购电量"], label="计划购电量", lw=1.6)
     axes[0].plot(hours, values["最终调整购电量"], label="调整购电量", lw=1.4)
@@ -104,7 +105,7 @@ def main(base_dir=None, problem=None):
     month_axis(axes[1])
     save(fig, "购电计划与费用.png")
 
-    # 同图展示计划、紧急购电、调整增购、减购退款。
+    # 同图展示计划、紧急购电、调整增购、减购退款
     increase_cost = 1.5 * values["调整交易价格"] * values["增购量"]
     refund_cost = 0.5 * values["调整交易价格"] * values["减购量"]
     fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True, constrained_layout=True)
@@ -123,7 +124,7 @@ def main(base_dir=None, problem=None):
     axes[1].legend(ncol=2)
     save(fig, "购电构成与调整费用.png")
 
-    # 选定日储能运行。
+    # 选定日储能运行
     fig, axes = plt.subplots(2, 1, figsize=(11, 7), constrained_layout=True)
     axes[0].bar(hours, values["充电量"], width=1 / 6, label="充电量")
     axes[0].bar(hours, -values["放电量"], width=1 / 6, label="放电量（负值）")
@@ -137,7 +138,7 @@ def main(base_dir=None, problem=None):
     decorate(axes[1], "储能状态", "储能量（kWh）", "时刻")
     save(fig, "储能运行.png")
 
-    # 全年紧急购电量和费用。
+    # 全年紧急购电量和费用
     fig, axes = plt.subplots(2, 1, figsize=(11, 7), sharex=True, constrained_layout=True)
     axes[0].plot(days, emergency, color="#c44e52")
     decorate(axes[0], "全年每日紧急购电量", "电量（kWh/天）")

@@ -1,14 +1,13 @@
+#问题三/问题四-3共享参数网格搜索
 import csv
 import json
 from pathlib import Path
-
 import dispatch_core as core
-
 
 def run(base_dir, problem):
     base_dir = Path(base_dir).resolve()
     core.configure(base_dir, problem)
-    # 先生成全年预测；只用 1 月 8—31 日这段历史回放选参数。
+    # 先生成全年预测；只用 1 月 8—31 日这段历史回放选参数
     dates, price_all, cold_load, pv_power, load, pv, forecast_map = core.read_inputs()
     load_hat = core.build_load_forecast(dates, load, cold_load)
     pv_hat = core.build_pv_forecast(dates, pv_power, forecast_map)
@@ -24,7 +23,7 @@ def run(base_dir, problem):
     )
     config = json.loads((base_dir / f"problem{problem}_config.json").read_text("utf-8"))
     rows = []
-    # 逐一尝试“安全分位数、末端 SOC 目标、惩罚系数”三组参数。
+    # 逐一尝试“安全分位数、末端 SOC 目标、惩罚系数”三组参数
     for beta in config["safety_quantile_grid"]:
         margins = core.build_safety_margins(dates, load, pv, load_hat, pv_hat, beta)
         for target in config["terminal_target_grid_kwh"]:
@@ -38,7 +37,7 @@ def run(base_dir, problem):
                 )
                 cost = sum(core.settlement(result, price_all[day_index[result.day]])
                            for result in results)
-                # 用期末储能残值修正评分，避免只追求短期购电费。
+                # 用期末储能残值修正评分，避免只追求短期购电费
                 score = cost - config["salvage_rate_multiplier"] * average_price * results[-1].s_end
                 rows.append([beta, target, multiplier, cost, results[-1].s_end, score])
 

@@ -1,3 +1,4 @@
+#问题三/问题四-3共享的日前计划、滚动调整和储能仿真核心
 from copy import copy
 from dataclasses import dataclass
 from datetime import date, datetime, time
@@ -8,11 +9,13 @@ import json
 import numpy as np
 from scipy.optimize import linprog
 from scipy.sparse import csr_matrix, lil_matrix, vstack
+
 try:
     import openpyxl
 except ModuleNotFoundError as exc:
     raise SystemExit("缺少依赖，请先运行: pip install -r requirements.txt") from exc
-# 1.基本参数的设置 
+
+# 1.基本参数 
 HERE = Path(__file__).resolve().parent
 ATTACHMENT = HERE / "附件"
 PROBLEM = 4
@@ -20,7 +23,7 @@ RESULT_TEMPLATE = "result4-3.xlsx"
 RESULT_NAME = "result4-3.xlsx"
 DISPATCH_NAME = "dispatch_problem4.csv"
 
-#选择问题入口的数据目录和结果模板，支持问题3和问题4-3
+
 def configure(base_dir, problem):
     global HERE, ATTACHMENT, PROBLEM, RESULT_TEMPLATE, RESULT_NAME, DISPATCH_NAME
     HERE = Path(base_dir).resolve()
@@ -36,25 +39,30 @@ def configure(base_dir, problem):
         raise ValueError(f"不支持的问题入口: {problem}")
 #（1）时间参数
 T = 144                         # 一天 144 个十分钟时段
-SLOTS_PER_HOUR,TOTAL_DAYS,FORECAST_HOURS= 6,365,24
+SLOTS_PER_HOUR = 6
 DT = 1 / SLOTS_PER_HOUR         # 十分钟对应的小时数
+TOTAL_DAYS = 365
+FORECAST_HOURS = 24
 ISSUE_HOURS = (0, 6, 12, 18)    # 00:00、06:00、12:00、18:00
 UPDATE_SLOTS = {36: 1, 72: 2, 108: 3}
 SCHEME_UPDATES = {"A": {}, "B": {72: 2}, "C": UPDATE_SLOTS}
 
 # （2）储能参数
-ETA_C, ETA_D = 0.9, 0.9#充放电效率
-SOC_MIN, SOC_MAX = 1200.0, 10800.0#储存电量限制
-MAX_POWER_KW = 5000.0#限制功率
+ETA_C, ETA_D = 0.9, 0.9
+SOC_MIN, SOC_MAX = 1200.0, 10800.0
+MAX_POWER_KW = 5000.0
 ENERGY_LIMIT = MAX_POWER_KW * DT
 INITIAL_SOC = 6000.0
 RESERVE_SOC = SOC_MIN
 
-# （3）预测参数
-BETA ,STARTUP_BETA= 0.5,0.7
-HISTORY_DAYS,HALF_LIFE_DAYS = 28,7.0
-YESTERDAY_WEIGHT = 0.1
-MIN_SAME_WEEKDAY, MIN_SAME_TYPE = 2, 3
+# （3）负荷预测参数
+BETA = 0.5
+STARTUP_BETA = 0.7
+LOAD_MODEL_FREEZE_DAY = 14
+LOW_CATEGORY_COUNT = 2
+DEFAULT_LOW_CATEGORY = {5, 6}
+CATEGORY_SHAPE_DAYS = 3
+CATEGORY_SWITCH_DAYS = 35
 ERROR_WINDOW_DAYS, MIN_ERROR_SAMPLES = 28, 7
 
 # （4）LP 参数和运行阶段
@@ -62,17 +70,18 @@ TERMINAL_TARGET, STARTUP_TARGET = 4800.0, 6000.0
 RHO_MULTIPLIER = STARTUP_RHO_MULTIPLIER = 1.0
 WARMUP_END_INDEX, EVALUATION_START_INDEX = 7, 31
 
-# （5）容差
+#（5） 容差
 ADOPTION_TOLERANCE = 1e-7
 VALIDATION_TOLERANCE = 1e-5
 LP_TOLERANCE = 1e-7
 
+# （5）官方模板中日期、总电量、总费用所在的列
 TOTAL_ENERGY_COLUMN = 2 + T
 TOTAL_COST_COLUMN = TOTAL_ENERGY_COLUMN + 1
 BLOCK_HOURS = 4
 BLOCKS_PER_DAY = 24 // BLOCK_HOURS
 SLOTS_PER_BLOCK = BLOCK_HOURS * SLOTS_PER_HOUR
-# （6）一天的计划、调整、实时储能和紧急购电结果
+#（6）一天的计划、调整、实时储能和紧急购电结果
 @dataclass
 class DayResult:
     day: date
@@ -95,14 +104,14 @@ class LPParameters:
     terminal_target: float
     rho: float
 
-# 2. 数据读取 
+#2.数据读取 
 def excel_rows(path, sheet=None):
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
     ws = wb[sheet] if sheet else wb.active
     values = list(ws.iter_rows(values_only=True))
     wb.close()
     return values
-#（1）Excel 日期和字符串统一
+#统一日期和字符串
 def as_date(value):
     if isinstance(value, datetime):
         return value.date()
@@ -118,7 +127,7 @@ def as_date(value):
     if len(parts) == 3:
         return date(*parts)
     raise ValueError(f"无法解析日期: {value!r}")
-#（2）功率换算，读取附件
+#读取附件，换算功率
 def read_inputs():
     rows = excel_rows(ATTACHMENT / "附件1.xlsx")
     price = np.array([float(row[1]) for row in rows[1:]], dtype=float)
@@ -163,31 +172,60 @@ def read_inputs():
         raise ValueError(f"附件{4 if PROBLEM == 4 else 1}存在非正电价")
     return dates, price_all, cold_load, pv_power, load, pv, forecast
 
-# 3.预测与裕度
+#3.预测与裕度 
 #（1）设置工作日、周六、周日三类日期
 def day_type(day):
     return "saturday" if day.weekday() == 5 else "sunday" if day.weekday() == 6 else "workday"
-#（2）负荷预测
+#（2）仅用1月1-14日识别并冻结两个低负荷星期类别
+def identify_low_weekdays(dates, load):
+    totals = load[:LOAD_MODEL_FREEZE_DAY].sum(axis=1)
+    weekday_means = [
+        np.mean([totals[i] for i in range(LOAD_MODEL_FREEZE_DAY)
+                 if dates[i].weekday() == weekday])
+        for weekday in range(7)
+    ]
+    return set(int(x) for x in np.argsort(weekday_means)[:LOW_CATEGORY_COUNT])
+#（3）类别切换负荷预测：同类历史形状乘以类别切换后的的日总量
 def build_load_forecast(dates, load, cold_load):
     result = np.zeros_like(load)
     result[0] = cold_load
-    kinds = [day_type(day) for day in dates]
+    totals = load.sum(axis=1)
+    frozen_low_days = identify_low_weekdays(dates, load)
     for d in range(1, len(dates)):
-        recent = list(range(max(0, d - HISTORY_DAYS), d))
-        exact = [i for i in recent if dates[i].weekday() == dates[d].weekday()]
-        same = [i for i in recent if kinds[i] == kinds[d]]
-        peers = exact if len(exact) >= MIN_SAME_WEEKDAY else same if len(same) >= MIN_SAME_TYPE else recent
-        ages = d - np.array(peers, dtype=float)
-        weights = np.power(0.5, ages / HALF_LIFE_DAYS)
-        base = np.average(load[peers], axis=0, weights=weights)
-        result[d] = np.maximum(base + YESTERDAY_WEIGHT * (load[d - 1] - result[d - 1]), 0)
+        low_days = frozen_low_days if d >= LOAD_MODEL_FREEZE_DAY else DEFAULT_LOW_CATEGORY
+
+        def category(index):
+            return int(dates[index].weekday() not in low_days)
+
+        current_category = category(d)
+        peers = [i for i in range(d - 1, -1, -1)
+                 if category(i) == current_category][:CATEGORY_SHAPE_DAYS]
+        if not peers:
+            peers = [d - 1]
+        shape = load[peers].sum(axis=0) / max(float(totals[peers].sum()), 1e-12)
+        switches = [
+            i for i in range(max(1, d - CATEGORY_SWITCH_DAYS), d)
+            if category(i) != category(i - 1)
+        ]
+        transitions = [
+            np.log(max(float(totals[i]), 1e-12) / max(float(totals[i - 1]), 1e-12))
+            / (category(i) - category(i - 1))
+            for i in switches
+        ]
+        coefficient = float(np.median(transitions)) if transitions else 0.0
+        predicted_total = totals[d - 1] * np.exp(
+            coefficient * (current_category - category(d - 1))
+        )
+        result[d] = np.maximum(predicted_total * shape, 0)
+    if not np.isfinite(result).all():
+        raise ValueError("类别切换负荷预测产生非有限值")
     return result
-#（3）光伏预测
+#（4）取发布时间之前最近的实测光伏功率
 def observed_pv_at_issue(day_index, issue_hour, pv_power):
     if issue_hour == 0:
         return 0.0 if day_index == 0 else float(pv_power[day_index - 1, -1])
     return float(pv_power[day_index, issue_hour * SLOTS_PER_HOUR - 1])
-#（4）线性插值
+#（5）线性插值得到对应的十分钟电量
 def build_pv_forecast(dates, pv_power, forecast_map):
     result = np.zeros((len(dates), len(ISSUE_HOURS), T))
     knot_x = np.arange(25, dtype=float)
@@ -204,7 +242,7 @@ def build_pv_forecast(dates, pv_power, forecast_map):
                     0.0,
                 )
     return result
-#（5）安全裕度
+#（6）构造净负荷安全裕度
 def build_safety_margins(dates, load, pv, load_hat, pv_hat, beta):
     margins = np.zeros_like(pv_hat)
     errors = np.full_like(pv_hat, np.nan)
@@ -235,7 +273,7 @@ def build_safety_margins(dates, load, pv, load_hat, pv_hat, beta):
     return margins
 
 # 4.线性规划 
-#(1)用线性规划求日前计划和滚动调整计划
+#（1）用线性规划求日前计划和滚动调整计划
 class Scheduler:
     def __init__(self, price):
         self.price = np.asarray(price, dtype=float)
@@ -251,9 +289,10 @@ class Scheduler:
         if not result.success:
             raise RuntimeError(f"{label}求解失败: {result.message}")
         return result.x
-#主目标相同的解中，优先选不同时充放电的解
+
     def _tie_break(self, x, objective, a_eq, b_eq, a_ub, b_ub, bounds,
                    charge, discharge, waste, emergency, label):
+        #主目标相同的解中，优先选不同时充放电的解
         if np.minimum(x[charge], x[discharge]).max(initial=0.0) <= 1e-6:
             return x
         secondary = np.zeros_like(objective)
@@ -263,17 +302,17 @@ class Scheduler:
         a_ub2 = vstack([a_ub, csr_matrix(objective.reshape(1, -1))], format="csr")
         b_ub2 = np.r_[b_ub, primary + max(1e-6, abs(primary) * 1e-9)]
         return self._solve(secondary, a_eq, b_eq, a_ub2, b_ub2, bounds, f"{label}二阶段")
-#（2）00:00 原始计划：正常购电、储能和终端 SOC 软约束
+#（2）0点原始计划：正常购电、储能和终端SOC软约束
     def solve_original(self, demand, initial_soc, params):
         n = len(demand)
         iq, ie = slice(0, n), slice(n, 2 * n)
         ic, id_ = slice(2 * n, 3 * n), slice(3 * n, 4 * n)
         iw, isoc = slice(4 * n, 5 * n), slice(5 * n, 6 * n + 1)
         iz, nvar = 6 * n + 1, 6 * n + 2
-        # 变量顺序：正常购电 q、预测紧急购电 e、充电 c、放电 d、弃电 w、SOC、末端惩罚 z。
+        # 变量顺序：正常购电 q、预测紧急购电 e、充电 c、放电 d、弃电 w、SOC、末端惩罚 z
         a_eq = lil_matrix((2 * n, nvar))
         for t in range(n):
-            # 供需平衡：q + e + d - c - w = 预测净负荷。
+            # 供需平衡：q + e + d - c - w = 预测净负荷
             a_eq[t, iq.start + t] = 1
             a_eq[t, ie.start + t] = 1
             a_eq[t, ic.start + t] = -1
@@ -288,7 +327,7 @@ class Scheduler:
         a_eq = a_eq.tocsr()
 
         a_ub = lil_matrix((1, nvar))
-        # z >= 末端目标 - 日末 SOC，用软约束避免把电池耗空。
+        # z >= 末端目标 - 日末 SOC，用软约束避免把电池耗空
         a_ub[0, isoc.stop - 1] = a_ub[0, iz] = -1
         a_ub = a_ub.tocsr()
         b_eq = np.r_[demand, np.zeros(n)]
@@ -307,7 +346,7 @@ class Scheduler:
         x = self._tie_break(x, objective, a_eq, b_eq, a_ub, b_ub, bounds,
                              ic, id_, iw, ie, "0:00原计划LP")
         return x[iq].copy()
-#（3）按交易时刻价格比较“不调整”和“自由调整”两个 LP
+#（3）按交易时刻价格比较“不调整”和“自由调整”两个LP
     def solve_adjustment(self, q0, current_q, demand, initial_soc, params, fixed,
                          daily_price, trade_price):
         n = len(demand)
@@ -318,10 +357,10 @@ class Scheduler:
         iw, isoc = slice(6 * n, 7 * n), slice(7 * n, 8 * n + 1)
         iz, nvar = 8 * n + 1, 8 * n + 2
 
-        # 变量顺序：最终购电 q、增购 u、减购 v、预测紧急购电 e、充放电、弃电、SOC、z。
+        # 变量顺序：最终购电 q、增购 u、减购 v、预测紧急购电 e、充放电、弃电、SOC、z
         a_eq = lil_matrix((3 * n, nvar))
         for t in range(n):
-            # 调整账本：q = q0 + u - v；v 的上界随后设为 q0。
+            # 调整账本：q = q0 + u - v；v 的上界随后设为 q0
             a_eq[t, iq.start + t] = 1
             a_eq[t, iu.start + t] = -1
             a_eq[t, iv.start + t] = 1
@@ -337,6 +376,7 @@ class Scheduler:
             a_eq[row, ic.start + t] = -ETA_C
             a_eq[row, id_.start + t] = 1 / ETA_D
         a_eq = a_eq.tocsr()
+
         a_ub = lil_matrix((1, nvar))
         a_ub[0, isoc.stop - 1] = a_ub[0, iz] = -1
         a_ub = a_ub.tocsr()
@@ -378,7 +418,7 @@ def simulate_day(scheduler, d, dates, price_all, load, pv, load_hat, pv_hat, mar
     soc = np.zeros(T + 1)
     soc[0] = initial_soc
     adopted = 0
-    # 每个时段记录最后一次实际生效的调整交易价格。
+    # 每个时段记录最后一次实际生效的调整交易价格
     adjustment_price = np.zeros(T)
 
     for slot in range(T):
@@ -398,7 +438,7 @@ def simulate_day(scheduler, d, dates, price_all, load, pv, load_hat, pv_hat, mar
                 adjustment_price[slot:] = daily_price[slot]
                 adopted += 1
 
-        # 缺口先放电，不足部分才紧急购电；富余先充电，多余部分弃电。
+        # 缺口先放电，不足部分才紧急购电；富余先充电，多余部分弃电
         gap = float(load[d, slot] - pv[d, slot] - q[slot])
         if gap > 0:
             discharge[slot] = min(gap, ENERGY_LIMIT, ETA_D * max(soc[slot] - RESERVE_SOC, 0))
@@ -407,7 +447,7 @@ def simulate_day(scheduler, d, dates, price_all, load, pv, load_hat, pv_hat, mar
             c[slot] = min(-gap, ENERGY_LIMIT, max((SOC_MAX - soc[slot]) / ETA_C, 0))
             waste[slot] = max(-gap - c[slot], 0)
         soc[slot + 1] = soc[slot] + ETA_C * c[slot] - discharge[slot] / ETA_D
-        # 仅消除浮点误差造成的 1200/10800 附近微小越界。
+        # 仅消除浮点误差造成的 1200/10800 附近微小越界
         soc[slot + 1] = np.clip(soc[slot + 1], SOC_MIN, SOC_MAX)
 
     return DayResult(
@@ -415,7 +455,7 @@ def simulate_day(scheduler, d, dates, price_all, load, pv, load_hat, pv_hat, mar
         np.maximum(q - q0, 0), np.maximum(q0 - q, 0), emergency,
         c, discharge, waste, soc, adopted, adjustment_price,
     )
-#（2）连续仿真多个日期，上一天的末 SOC 作为下一天初始 SOC
+##（2）连续仿真多个日期，上一天的末 SOC 作为下一天初始 SOC
 def simulate_range(scheduler, indices, dates, price_all, load, pv, load_hat, pv_hat, margins,
                    initial_soc, params, update_slots=UPDATE_SLOTS):
     results, soc = [], float(initial_soc)
@@ -451,7 +491,7 @@ def formal_settings():
         float(values["rho_multiplier"]),
     )
 
-# 6.结果校验和 Excel 
+# 6.结果校验和 Excel
 #（1）校验能量平衡、SOC 连续性和上下界
 def audit_results(results, dates, load, pv):
     day_index = {day: i for i, day in enumerate(dates)}
@@ -494,7 +534,7 @@ def resize_rows(ws, count):
         ws.delete_rows(count + 1, ws.max_row - count)
     elif ws.max_row < count:
         ws.insert_rows(ws.max_row + 1, count - ws.max_row)
-
+#（2）把紧急购电时段合并成模板中的事件行
 def emergency_events(results):
     events = []
     for result in results:
@@ -515,7 +555,7 @@ def emergency_events(results):
             ))
             first, slot = False, slot + 1
     return events
-#把原计划 q0 或最终计划 q 写入模板，并写对应正常费用
+#（3）把原计划 q0 或最终计划 q 写入模板
 def write_plan_sheet(ws, field, results, day_index, price_all):
     resize_rows(ws, len(results) + 1)
     for row_number, result in enumerate(results, 2):
@@ -531,11 +571,10 @@ def write_workbook(results, dates, price_all):
     wb = openpyxl.load_workbook(ATTACHMENT / "附件5" / RESULT_TEMPLATE)
     output = HERE / RESULT_NAME
     day_index = {day: i for i, day in enumerate(dates)}
-
     for sheet, field in (("计划购电量", "q0"), ("调整购电量", "q")):
         write_plan_sheet(wb[sheet], field, results, day_index, price_all)
 
-    # 充放电量按四小时汇总，并保留日初、日末 SOC。
+    # 充放电量按四小时汇总，并保留日初、日末 SOC
     ws = wb["充放电量"]
     styles = [[copy(ws.cell(row, col)._style) for col in range(1, 7)]
               for row in range(2, 2 + BLOCKS_PER_DAY)]
@@ -553,7 +592,7 @@ def write_workbook(results, dates, price_all):
             ])
             copy_style_row(ws, styles[block], ws.max_row)
 
-    # 紧急购电按连续时段合并。
+    # 紧急购电按连续时段合并
     ws = wb["紧急购电量"]
     event_styles = [[copy(ws.cell(row, col)._style) for col in range(1, 4)] for row in (2, 3, 4)]
     if ws.max_row > 1:
@@ -572,7 +611,7 @@ def write_workbook(results, dates, price_all):
         raise SystemExit(f"无法写入 {output}，请先关闭已打开的结果文件") from exc
     return output
 
-# 7.主流程 
+#7.主流程
 def write_dispatch_csv(scheme_results, dates, price_all, load, pv):
     path = HERE / DISPATCH_NAME
     with path.open("w", newline="", encoding="utf-8-sig") as handle:
@@ -660,7 +699,7 @@ def run(smoke_days=None, compare=False):
     startup_params = LPParameters(STARTUP_TARGET, STARTUP_RHO_MULTIPLIER * average_price)
     formal_params = LPParameters(terminal_target, rho_multiplier * average_price)
 
-    # 预热和校准阶段连续传递 SOC，正式评价从 2 月 1 日开始。
+    # 预热和校准阶段连续传递 SOC，正式评价从 2 月 1 日开始
     warmup = simulate_range(
         scheduler, range(WARMUP_END_INDEX), dates, price_all, load, pv, load_hat, pv_hat,
         startup_margins, INITIAL_SOC, startup_params,
@@ -684,7 +723,7 @@ def run(smoke_days=None, compare=False):
     if not results:
         raise ValueError("评价期没有结果")
 
-    # 比较模式下三个方案都检查；打印 C 方案的最大残差。
+    # 比较模式下三个方案都检查；打印 C 方案的最大残差
     checks = {name: audit_results(values, dates, load, pv)
               for name, values in scheme_results.items()}
     balance, state, v_q0 = checks["C"]

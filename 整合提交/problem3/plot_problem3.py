@@ -1,3 +1,4 @@
+#问题三绘图入口：调用共享绘图核心
 from pathlib import Path
 import sys
 

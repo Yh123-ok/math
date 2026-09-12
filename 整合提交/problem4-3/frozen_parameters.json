@@ -1,5 +1,5 @@
 {
-  "safety_quantile": 0.5,
+  "safety_quantile": 0.6,
   "terminal_target_kwh": 6000.0,
   "rho_multiplier": 1.0,
   "rho_yuan_per_kwh": 0.7661976046423135,
