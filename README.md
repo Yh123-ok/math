@@ -5,9 +5,11 @@
 ## 第四问重解第二问（4test）
 
 - [文件结构与复现入口](4test/README.md)、[完整方法](4test/reports/METHOD.md)、[结果与验收](4test/reports/RESULTS_REPORT.md)。
-- [正式结果 result4-2.xlsx](4test/result4-2.xlsx)、[运行入口 main.py](4test/main.py)、[CSV明细](4test/outputs/)、[四张PDF](4test/figures/)。
+- [正式结果 result4-2.xlsx](4test/result4-2.xlsx)、[运行入口 main.py](4test/main.py)、[CSV明细](4test/outputs/)、[10组PDF和PNG](4test/figures/)。
+- [优化对比分析](4test/reports/OPTIMIZATION_ANALYSIS.md)、[可执行绘图Notebook（含完整绘图代码）](4test/notebooks/analysis_plots.ipynb)、[信息边界与防泄露验收](4test/reports/INFORMATION_BOUNDARY.md)。Notebook已实际执行，20个重绘PDF/PNG与正式图逐字节一致。
 - 假设每天0:00已知当天完整电价；负载、光伏预测及策略选择只使用历史信息，不使用明日电价。附件时间按区间终点处理；Excel保留原模板表头，按源数据列序填写，文字偏移及实际物理区间另有逐列映射说明。
-- 2025年2—12月正式总费用 **14,590,094.917343元**，紧急购电 **104,472.710978 kWh**。比即时放电对照省38,247.518164元，但紧急电量略增，详情见报告。
+- 2025年2—12月正式总费用 **14,580,492.239221元**，紧急购电 **103,667.711485 kWh**。比原分层策略节省 **9,602.678122元（0.0658%）**，紧急购电减少 **804.999493 kWh**。
+- 六组风险参数与G/MPC控制器组成12个联合候选，只按决策日前的历史评分选择。正式采用同起点历史重放；本数据中与连续联合策略43次选择均相同，没有额外重放收益。旧分层结果保存在 `4test/archives/layered_v1/`，供核对。
 - 本次新增内容集中于 `4test/`；第一问和第二问求解程序未因此改动。此目录不含第四问对应第三问的结果。
 
 ## 推荐阅读入口

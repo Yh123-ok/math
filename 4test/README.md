@@ -1,6 +1,6 @@
 # 第四问：波动电价下重解第二问
 
-先读 `reports/RESULTS_REPORT.md` 看数值，再读 `reports/METHOD.md` 看方法。提交结果为 `result4-2.xlsx`。本文件夹不计算第四问对应第三问的部分。
+先读 `reports/OPTIMIZATION_ANALYSIS.md` 看新旧比较，再读 `reports/RESULTS_REPORT.md` 和 `reports/METHOD.md`。正式方案为同起点12组合联合选择，提交结果为 `result4-2.xlsx`。图表复现入口为 `notebooks/analysis_plots.ipynb`。本文件夹不计算第四问对应第三问的部分。
 
 ## 1. 信息边界
 
@@ -19,21 +19,32 @@
 |`src/forecasting.py`|负载/光伏预测、历史组合权重及误差安全余量|
 |`src/day_ahead.py`|当天正常购电计划，两阶段线性规划|
 |`src/realtime.py`|即时放电及价格感知MPC，逐段执行且不改变正常计划|
-|`src/backtest.py`|各候选连续运行；只按历史评分选择参数和控制器|
+|`src/backtest.py`|原分层策略基准及通用历史评分|
+|`src/joint_search.py`|12组合连续联合、同库存起点历史重放、正式逐日执行|
 |`src/validation.py`|能量与库存约束校验、扰动未来数据的因果测试|
 |`src/reporting.py`|CSV、Excel载荷、结果报告、独立重读验收和文件哈希|
-|`src/figures.py`|从保存的CSV绘制中文矢量PDF|
+|`src/analysis.py`|从CSV生成比较表、候选统计及分析报告，不参与决策|
+|`src/plot_analysis.py`|10张Matplotlib图的完整源码，中文矢量PDF与PNG|
+|`notebooks/analysis_plots.ipynb`|包含完整绘图源码和实际执行输出的Notebook|
+|`tools/build_notebook.py`|由绘图源码生成Notebook，保持两者同步|
+|`tools/reproduce_notebook.py`|执行Notebook并核对20个图文件逐字节一致|
+|`tools/check_memoization.py`|比较重叠历史窗口有无缓存的12组合评分是否相同|
 |`tools/write_result.mjs`|用官方模板填写Excel并生成三页预览|
 |`outputs/dispatch_all_year.csv`|全年正式策略逐十分钟的实际执行数据|
 |`outputs/forecasts.csv`、`forecast_weights.csv`|当时生成的预测、净负荷误差和组合权重|
-|`outputs/daily_summary.csv`、`summary.csv`|三种控制策略逐日与评价期合计|
+|`outputs/daily_summary.csv`、`summary.csv`|五种对照/正式策略逐日与评价期合计|
 |`outputs/selections.csv`、`risk_shadow_daily.csv`|每次选择的历史区间、各候选分数和原始日记录|
+|`outputs/selection_scores.csv`|两种联合规则每次12候选评分与初末库存|
+|`outputs/strategy_comparison.csv`、`monthly_comparison.csv`|费用节省、紧急量变化及单价的总体和月度对照|
+|`outputs/candidate_comparison.csv`、`selection_frequency.csv`|固定组合事后诊断和历史选中次数|
+|`archives/layered_v1/`|此次改进前的结果与汇总快照|
 |`outputs/battery_four_hour.csv`、`emergency_events.csv`|全年四小时充放电、连续紧急购电事件|
 |`outputs/time_mapping.csv`|源数据列、输出列、原样保留的模板标签与实际物理区间逐项映射|
 |`outputs/checks.json`、`input_audit.json`、`manifest.json`|验收、输入核验、运行版本/配置/哈希|
 |`reports/METHOD.md`|完整方法、公式、选型理由和局限|
+|`reports/INFORMATION_BOUNDARY.md`|逐环节信息边界、历史重放为何允许及泄露测试说明|
 |`reports/RESULTS_REPORT.md`|总结果、指定四日摘要和所有验收数值|
-|`figures/*.pdf`|月费用、月紧急电量、6月21日调度、全年库存|
+|`figures/*.pdf`、`*.png`|10组费用、紧急电量、评分、选择、参数交互和调度分析图|
 
 ## 3. 一条命令复现
 
@@ -48,7 +59,7 @@
   main.py
 ```
 
-依赖：Python 3.10以上及 `requirements.txt` 中软件包；Excel作者工具需要Node.js与 `@oai/artifact-tool`。在已有Codex离线运行库时，程序自动定位Node和依赖，只在本目录创建依赖目录联接；普通环境需先确保该包可用。绘图需微软雅黑、黑体或Noto Sans CJK SC中文字体。
+依赖：Python 3.10以上及 `requirements.txt` 中软件包；Excel作者工具需要Node.js与 `@oai/artifact-tool`。在已有Codex离线运行库时，程序自动定位Node和依赖，只在本目录创建依赖目录联接；普通环境需先确保该包可用。绘图默认微软雅黑或黑体，其他系统用 `PROBLEM4_FONT` 指定中文TrueType字体。
 
 ```powershell
 python -m pip install -r 4test/requirements.txt
@@ -62,6 +73,14 @@ python 4test/main.py --compute-only
 ```
 
 `--export-only` 可从本机计算缓存再次生成文件；仅可读取自己生成的可信缓存。正常比赛复现使用默认命令，不需要缓存。浮点误差容限为1e-6 kWh；不同求解器版本遇到多解时细节可能不同，应先比对成本和约束。
+
+仅复现图表：在Jupyter或VS Code中打开Notebook，选择安装上述依赖的Python内核，点击“全部运行”。无需读取原始附件或重新求解。自动执行与一致性验收：
+
+```powershell
+python 4test/tools/reproduce_notebook.py
+```
+
+正式图仍在figures目录；验收副本在outputs/notebook_reproduction，检查结果在outputs/notebook_reproduction.json。单次生成10个PDF和10个PNG；同环境与同字体下应逐字节一致，跨环境以视觉和数值一致为准。Notebook展示全部绘图代码与图像，不只是调用一个隐藏函数。
 
 ## 4. 结果解释
 

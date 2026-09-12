@@ -1,0 +1,2 @@
+# Preserve artifact bytes so outputs/manifest.json remains verifiable after clone.
+* -text

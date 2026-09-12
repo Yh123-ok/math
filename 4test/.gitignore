@@ -2,5 +2,10 @@ __pycache__/
 *.pyc
 node_modules/
 outputs/local_run_cache.pkl
+outputs/joint_run_cache.pkl
+outputs/notebook_reproduction/
+outputs/qa/kernels/
+outputs/qa/ipython/
+outputs/qa/jupyter_runtime/
 *.log
 *.inspect.ndjson

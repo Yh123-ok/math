@@ -10,16 +10,18 @@
 |---|---:|---:|---:|---:|---:|
 |对照：即时放电|21904057.602801|101160.208625|13953887.767665|674454.667842|14628342.435507|
 |对照：价格感知MPC|21899043.246702|105639.676533|13951680.282102|629008.457554|14580688.739656|
-|正式：历史选择控制器|21900437.276374|104472.710978|13952299.613012|637795.304331|14590094.917343|
+|原方案：分层选择|21900437.276374|104472.710978|13952299.613012|637795.304331|14590094.917343|
+|对照：连续12组合联合选择|21895366.132489|103667.711485|13947676.425690|632815.813531|14580492.239221|
+|正式：同起点12组合联合选择|21895366.132489|103667.711485|13947676.425690|632815.813531|14580492.239221|
 
-正式方案始终按历史分数决定，不根据年底总费用倒选全年赢家。三条策略均采用同一历史风险选择序列，但库存分别连续演化，故购电计划可不同。
+正式方案预先固定为同起点12组合联合选择；每次仅比较此前28天，不根据年底总费用倒选赢家。G/MPC两条旧对照沿用原分层风险选择序列，其余策略各自按对应历史规则选参数并连续演化库存。
 
 ## 2. 题面四个指定日期
 
 |日期|10:00|12:00|14:00|16:00|18:00|20:00|全天计划量/kWh|计划费/元|紧急量/kWh|紧急费/元|
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 |2025-03-20|0.000000|614.764540|0.000000|461.322507|0.000000|0.000000|68970.049789|42586.158485|142.396271|895.826110|
-|2025-06-21|0.000000|0.000000|0.000000|240.108550|498.358364|0.000000|36726.311496|18414.021463|0.000000|0.000000|
+|2025-06-21|0.000000|0.000000|0.000000|240.108550|498.358364|0.000000|36632.339728|18377.212712|0.000000|0.000000|
 |2025-09-23|0.000000|486.839799|0.000000|540.184464|0.000000|825.720355|69066.625445|44332.118280|188.682345|1252.527303|
 |2025-12-21|0.000000|894.391645|0.000000|790.095689|714.822026|0.000000|91594.285672|68236.121227|1429.461077|8871.752398|
 
@@ -33,9 +35,9 @@
 |2025-03-20|12:00-16:00|3199.944834|540.513211|
 |2025-03-20|16:00-20:00|262.112797|6361.238410|
 |2025-03-20|20:00-24:00|5684.088385|2248.948634|
-|2025-06-21|00:00-04:00|1236.343803|6819.976674|
+|2025-06-21|00:00-04:00|1236.343803|6913.948566|
 |2025-06-21|04:00-08:00|2982.215936|1725.594955|
-|2025-06-21|08:00-12:00|8867.486982|0.000000|
+|2025-06-21|08:00-12:00|8867.487105|0.000000|
 |2025-06-21|12:00-16:00|0.000000|0.000000|
 |2025-06-21|16:00-20:00|94.786990|5237.043200|
 |2025-06-21|20:00-24:00|6147.256670|2485.896583|
@@ -55,7 +57,7 @@
 |日期|0:00储电量/kWh|24:00储电量/kWh|
 |---|---:|---:|
 |2025-03-20|6757.733523|6267.161650|
-|2025-06-21|8517.637538|7836.795090|
+|2025-06-21|8622.050640|7836.795090|
 |2025-09-23|6536.098130|6296.864289|
 |2025-12-21|7059.063666|6119.325152|
 
@@ -173,59 +175,6 @@
 
 ```json
 {
-  "physical": {
-    "greedy": {
-      "balance_max_kwh": 4.547473508864641e-13,
-      "state_equation_max_kwh": 9.094947017729282e-13,
-      "soc_min_kwh": 1200.0,
-      "soc_max_kwh": 10800.0,
-      "charge_max_kwh": 833.3333333333334,
-      "discharge_max_kwh": 833.3333333333334,
-      "simultaneous_max_kwh": 0.0,
-      "cross_day_soc_max_kwh": 0.0,
-      "first_soc_error_kwh": 0.0,
-      "emergency_while_charging_max_kwh": 0.0,
-      "negative_min_kwh": 0.0,
-      "nonfinite_count": 0,
-      "four_hour_charge_sum_error_kwh": 0.0,
-      "four_hour_discharge_sum_error_kwh": 0.0,
-      "slots_per_four_hour_block": 24
-    },
-    "mpc": {
-      "balance_max_kwh": 4.547473508864641e-13,
-      "state_equation_max_kwh": 9.094947017729282e-13,
-      "soc_min_kwh": 1200.0,
-      "soc_max_kwh": 10800.0,
-      "charge_max_kwh": 833.3333333333334,
-      "discharge_max_kwh": 833.3333333333334,
-      "simultaneous_max_kwh": 0.0,
-      "cross_day_soc_max_kwh": 0.0,
-      "first_soc_error_kwh": 0.0,
-      "emergency_while_charging_max_kwh": 0.0,
-      "negative_min_kwh": 0.0,
-      "nonfinite_count": 0,
-      "four_hour_charge_sum_error_kwh": 0.0,
-      "four_hour_discharge_sum_error_kwh": 0.0,
-      "slots_per_four_hour_block": 24
-    },
-    "official": {
-      "balance_max_kwh": 4.547473508864641e-13,
-      "state_equation_max_kwh": 9.094947017729282e-13,
-      "soc_min_kwh": 1200.0,
-      "soc_max_kwh": 10800.0,
-      "charge_max_kwh": 833.3333333333334,
-      "discharge_max_kwh": 833.3333333333334,
-      "simultaneous_max_kwh": 0.0,
-      "cross_day_soc_max_kwh": 0.0,
-      "first_soc_error_kwh": 0.0,
-      "emergency_while_charging_max_kwh": 0.0,
-      "negative_min_kwh": 0.0,
-      "nonfinite_count": 0,
-      "four_hour_charge_sum_error_kwh": 0.0,
-      "four_hour_discharge_sum_error_kwh": 0.0,
-      "slots_per_four_hour_block": 24
-    }
-  },
   "causality": {
     "forecast_current_future_actual_perturbation": 0.0,
     "safety_margin_future_error_perturbation": 0.0,
@@ -235,6 +184,17 @@
     "execution_future_intraday_actual_perturbation": 0.0,
     "selection_future_score_perturbation": 0.0,
     "mpc_reserves_for_expensive_future_example": "passed"
+  },
+  "joint_selection": {
+    "candidate_combinations": 12,
+    "updates": 43,
+    "history_window_days": 28,
+    "same_start_soc_max_error_kwh": 0.0,
+    "score_reconstruction_max_error_yuan": 0.0,
+    "historical_replay_future_perturbation_max_error_yuan": 0.0,
+    "selected_minimum_history_score": true,
+    "selection_held_until_next_update": true,
+    "formal_rule_fixed_before_evaluation": "same_start_joint"
   },
   "saved_outputs": {
     "verified_workbook": "result4-2.xlsx",
@@ -251,10 +211,30 @@
     "official_days": 334,
     "official_purchase_values": 48096,
     "battery_rows": 2004,
-    "emergency_event_rows": 470
-  }
+    "emergency_event_rows": 468
+  },
+  "official_physical": {
+    "balance_max_kwh": 4.547473508864641e-13,
+    "state_equation_max_kwh": 9.094947017729282e-13,
+    "soc_min_kwh": 1200.0,
+    "soc_max_kwh": 10800.0,
+    "charge_max_kwh": 833.3333333333334,
+    "discharge_max_kwh": 833.3333333333334,
+    "simultaneous_max_kwh": 0.0,
+    "cross_day_soc_max_kwh": 0.0,
+    "first_soc_error_kwh": 0.0,
+    "emergency_while_charging_max_kwh": 0.0,
+    "negative_min_kwh": 0.0,
+    "nonfinite_count": 0,
+    "four_hour_charge_sum_error_kwh": 0.0,
+    "four_hour_discharge_sum_error_kwh": 0.0,
+    "slots_per_four_hour_block": 24
+  },
+  "all_physical_strategies_passed": 17
 }
 ```
+
+全部对照与12条固定组合的逐项物理验收见 `outputs/checks.json`，此处展示正式结果与通过数量。
 
 扰动测试覆盖2月、6月、12月的当前/未来实际值；另检查未来电价、日内未来实际值、未来调参分数。测试通过支持这些已覆盖路径的因果性，不代表对所有可能程序路径的形式证明。
 

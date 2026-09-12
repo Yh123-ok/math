@@ -47,7 +47,7 @@ def find_node(base):
     return node
 
 
-def export_results(base,data,forecasts,streams,daily,selections,risk_history,checks,make_artifacts=True):
+def export_results(base,data,forecasts,streams,daily,selections,risk_history,checks,make_artifacts=True,extra=None):
     out=base/'outputs';(base/'reports').mkdir(exist_ok=True)
     dispatch=[];forecast_rows=[];battery=[];events=[];plan_values=[]
     for d,record in enumerate(streams['official']):
@@ -77,6 +77,13 @@ def export_results(base,data,forecasts,streams,daily,selections,risk_history,che
     write_csv(out/'battery_four_hour.csv',battery)
     write_csv(out/'emergency_events.csv',events)
     write_csv(out/'selections.csv',selections)
+    if extra:
+        write_csv(out/'selection_scores.csv',extra['score_rows'])
+        write_csv(out/'selections_joint_continuous.csv',extra['joint_selections'])
+        write_csv(out/'selections_layered.csv',extra['layered_selections'])
+        (out/'runtime.json').write_text(json.dumps({'backtest_seconds':extra['elapsed_seconds'],
+            'continuous_combo_days':len(data.dates)*12,'nominal_replay_combo_days':len(selections)*28*12,
+            'note':'重放复用完全相同日/组合/初始库存的计算；名义次数不等于实际LP次数'},ensure_ascii=False,indent=2),encoding='utf-8')
     write_csv(out/'time_mapping.csv',({'slot':t,'source_endpoint':data.source_times[t],
         'original_template_label':data.template_labels[t],'output_template_label':data.template_labels[t],
         'physical_interval':interval_label(t),'source_data_column_1based':t+2,
@@ -97,8 +104,10 @@ def export_results(base,data,forecasts,streams,daily,selections,risk_history,che
             'soc_start_kwh':selected[0]['soc_start_kwh'],'soc_end_kwh':selected[-1]['soc_end_kwh']})
     write_csv(out/'daily_summary.csv',daily_rows)
     write_csv(out/'summary.csv',summary)
-    write_csv(out/'risk_shadow_daily.csv',({'risk_index':j,'date':str(data.dates[r['day']]),**r}
+    write_csv(out/'risk_shadow_daily.csv',({'combo':j,'date':str(data.dates[r['day']]),**r}
         for j,rows in enumerate(risk_history) for r in rows))
+    from .analysis import analyze_results
+    analyze_results(base)
     payload={'output_path':str(base/'result4-2.xlsx'),'plan_values':plan_values,'battery_rows':battery,
         'emergency_rows':events,'template_labels':list(data.template_labels),
         'physical_labels':[interval_label(t) for t in range(144)]}
@@ -111,19 +120,19 @@ def export_results(base,data,forecasts,streams,daily,selections,risk_history,che
     subprocess.run([node,str(base/'tools/write_result.mjs')],check=True,cwd=base)
     exported=Path(json.loads((out/'workbook_export.json').read_text(encoding='utf-8'))['output_path'])
     checks['saved_outputs']=verify_saved_outputs(base,data,payload,summary,exported)
-    from .figures import create_figures
+    from .plot_analysis import create_figures
     create_figures(base)
     (out/'checks.json').write_text(json.dumps(checks,ensure_ascii=False,indent=2),encoding='utf-8')
     write_report(base,data,summary,daily,streams,checks)
-    import scipy,reportlab,openpyxl
-    artifact_paths=[p for folder in ('src','tools','reports','figures','outputs')
+    import scipy,matplotlib,openpyxl
+    artifact_paths=[p for folder in ('src','tools','reports','figures','outputs','notebooks')
         for p in (base/folder).rglob('*') if p.is_file()]
     artifact_paths += [p for p in base.iterdir() if p.is_file()]
     manifest={'python':sys.version,'numpy':np.__version__,'scipy':scipy.__version__,
-        'reportlab':reportlab.Version,'openpyxl':openpyxl.__version__,
+        'matplotlib':matplotlib.__version__,'openpyxl':openpyxl.__version__,
         'config':{k:v for k,v in vars(cfg).items() if k.isupper()},'inputs':data.audit,
         'outputs_sha256':{str(p.relative_to(base)):sha256(p) for p in artifact_paths
-            if p.suffix in ('.csv','.pdf','.xlsx','.md','.py','.mjs')}}
+            if p.suffix in ('.csv','.pdf','.xlsx','.md','.py','.mjs','.ipynb')}}
     (out/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps(summary,ensure_ascii=False,indent=2),flush=True)
 
@@ -197,16 +206,20 @@ def verify_saved_outputs(base,data,payload,summary,workbook_path=None):
 
 
 def write_report(base,data,summary,daily,streams,checks):
+    display_checks={k:v for k,v in checks.items() if k!='physical'}
+    display_checks['official_physical']=checks['physical']['official']
+    display_checks['all_physical_strategies_passed']=len(checks['physical'])
     text=['# 第四问重解第二问：计算结果','',
         '评价期为2025-02-01至2025-12-31；1月也逐日运行并延续真实模拟库存。以下为历史因果回测，不是全信息最优解，也不是独立未触碰测试集。',
         '', '假设每天0:00已公布当天144段电价；未知明日电价。附件2源时间作为区间终点。按用户要求，Excel所有表头原样保留。计划表第t个数据列对应源数据第t个终点及其前十分钟物理区间，不按模板偏移的文字平移数值；详见time_mapping.csv。附件3不进入本问题的信息集。',
         '', '## 1. 核心结果与对照','',
         '|策略|正常购电量/kWh|紧急购电量/kWh|正常费用/元|五倍紧急费用/元|总费用/元|',
         '|---|---:|---:|---:|---:|---:|']
-    labels={'official':'正式：历史选择控制器','greedy':'对照：即时放电','mpc':'对照：价格感知MPC'}
+    labels={'official':'正式：同起点12组合联合选择','joint':'对照：连续12组合联合选择',
+        'layered':'原方案：分层选择','greedy':'对照：即时放电','mpc':'对照：价格感知MPC'}
     for r in summary:
         text.append('|'+labels[r['strategy']]+'|'+'|'.join(f'{r[k]:.6f}' for k in ('plan_purchase_kwh','emergency_kwh','planned_cost_yuan','emergency_cost_yuan','total_cost_yuan'))+'|')
-    text.extend(['','正式方案始终按历史分数决定，不根据年底总费用倒选全年赢家。三条策略均采用同一历史风险选择序列，但库存分别连续演化，故购电计划可不同。','',
+    text.extend(['','正式方案预先固定为同起点12组合联合选择；每次仅比较此前28天，不根据年底总费用倒选赢家。G/MPC两条旧对照沿用原分层风险选择序列，其余策略各自按对应历史规则选参数并连续演化库存。','',
         '## 2. 题面四个指定日期','',
         '|日期|10:00|12:00|14:00|16:00|18:00|20:00|全天计划量/kWh|计划费/元|紧急量/kWh|紧急费/元|',
         '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|'])
@@ -233,7 +246,8 @@ def write_report(base,data,summary,daily,streams,checks):
         '附件2两页及附件4一页均366行×145列（含表头），365日×144段。逐项检查日期、时间、缺失、非数值、有限性及范围，详情如下。',
         '', '```json',json.dumps(data.audit,ensure_ascii=False,indent=2),'```','',
         '所有日前两阶段LP和日内LP均由SciPy HiGHS成功求解；任何失败或残差越界都会终止程序。验收指标如下。',
-        '', '```json',json.dumps(checks,ensure_ascii=False,indent=2),'```','',
+        '', '```json',json.dumps(display_checks,ensure_ascii=False,indent=2),'```','',
+        '全部对照与12条固定组合的逐项物理验收见 `outputs/checks.json`，此处展示正式结果与通过数量。','',
         '扰动测试覆盖2月、6月、12月的当前/未来实际值；另检查未来电价、日内未来实际值、未来调参分数。测试通过支持这些已覆盖路径的因果性，不代表对所有可能程序路径的形式证明。',
         '', '## 4. 方法和复现','',
         '完整流程、公式和选择依据见 `METHOD.md`，运行命令及每个代码文件用途见上级 `README.md`。PDF均由已保存CSV生成。',

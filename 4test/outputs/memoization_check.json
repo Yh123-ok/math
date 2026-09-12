@@ -1,0 +1,9 @@
+{
+  "overlapping_windows": 2,
+  "combinations_per_window": 12,
+  "max_numeric_difference": 0.0,
+  "uncached_seconds": 11.074369599984493,
+  "cached_seconds": 5.610929199960083,
+  "cached_distinct_day_states": 84,
+  "cache_key": "exact day, combination, initial SOC; one fixed-input run only"
+}

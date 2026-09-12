@@ -1,0 +1,15 @@
+{
+  "before_data_rows_sha256": {
+    "计划购电量": "ae5ee1ddbb18023b915bb9ddb04b97f6ba5c9254fd26a883df8b2c1996d828e8",
+    "充放电量": "9a6ad68763e5f7e147f3fc071a17027a22a5efce54b7ceaeafd15f70fc015830",
+    "紧急购电量": "646a33ad50def043e72c522c0ab7cd7b938d199ca35188031910d195cdfebe51"
+  },
+  "after_data_rows_sha256": {
+    "计划购电量": "ae5ee1ddbb18023b915bb9ddb04b97f6ba5c9254fd26a883df8b2c1996d828e8",
+    "充放电量": "9a6ad68763e5f7e147f3fc071a17027a22a5efce54b7ceaeafd15f70fc015830",
+    "紧急购电量": "646a33ad50def043e72c522c0ab7cd7b938d199ca35188031910d195cdfebe51"
+  },
+  "all_data_rows_unchanged": true,
+  "numeric_cells_compared": 53910,
+  "numeric_max_difference": 6.03949956712313e-09
+}

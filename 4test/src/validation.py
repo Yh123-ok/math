@@ -85,3 +85,36 @@ def validate_causality(data, forecasts, streams, risk_history):
     result['mpc_reserves_for_expensive_future_example']='passed'
     assert all(v<=1e-6 for v in result.values() if isinstance(v,float)),result
     return result
+
+
+def validate_joint_selection(data,streams,daily,selections,combo_history,extra):
+    """重建历史排名，并以被扰动的未来输入重放同一历史小窗口。"""
+    from .joint_search import COMBINATIONS,replay_scores
+    max_score_error=max_initial_error=0.
+    for sel in selections:
+        d=next(i for i,x in enumerate(data.dates) if str(x)==sel['date'])
+        assert sel['history_end']<sel['date'] and sel['history_start']==str(data.dates[d-28])
+        rows=[r for r in extra['score_rows'] if r['date']==sel['date'] and r['selector']=='same_start']
+        assert len(rows)==12 and sum(r['selected'] for r in rows)==1
+        initial=daily['official'][d-28]['soc_start_kwh']
+        for r in rows:
+            max_initial_error=max(max_initial_error,abs(r['initial_soc_kwh']-initial))
+            expected=r['window_cost_yuan']-.9*extra['price_values'][d]*(r['final_soc_kwh']-initial)
+            max_score_error=max(max_score_error,abs(expected-r['score']))
+        assert sel['combo']==min(rows,key=lambda r:(r['score'],r['combo']))['combo']
+        for j in range(d,min(d+7,len(data.dates))):
+            expected=COMBINATIONS[sel['combo']]
+            assert (daily['official'][j]['risk_index'],daily['official'][j]['controller'])==expected
+    # 接口必须截断于决策日前；未来实际/价格的任意扰动不能改变重放分数。
+    stop=66;first=64;net=data.load-data.pv;prices=data.prices.copy()
+    altered=net.copy();altered[stop:]=altered[stop:]*5+9000;prices[stop:]*=7
+    common=(extra['point'][:stop],extra['demands'][:stop],extra['price_values'][:stop],extra['price_values'][stop])
+    a=replay_scores(first,stop,6000,net[:stop],data.prices[:stop],*common)
+    b=replay_scores(first,stop,6000,altered[:stop],prices[:stop],*common)
+    future_error=max(abs(x['score']-y['score']) for x,y in zip(a,b))
+    assert max(max_score_error,max_initial_error,future_error)<=1e-6
+    return {'candidate_combinations':12,'updates':len(selections),'history_window_days':28,
+        'same_start_soc_max_error_kwh':max_initial_error,'score_reconstruction_max_error_yuan':max_score_error,
+        'historical_replay_future_perturbation_max_error_yuan':future_error,
+        'selected_minimum_history_score':True,'selection_held_until_next_update':True,
+        'formal_rule_fixed_before_evaluation':'same_start_joint'}
